@@ -4,7 +4,7 @@
 
 ### rdif-* 接口
 
-硬件通用操作接口，为支持动态分发，接口均设计为`object safe`。
+硬件通用操作接口，为支持动态分发，接口均设计为 `dyn-compatible(object safe)`。
 
 ### rdrive-macros
 
