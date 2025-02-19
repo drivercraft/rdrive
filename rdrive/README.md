@@ -119,8 +119,21 @@ fn probe_gic(node: Node<'_>) -> Result<FdtProbeInfo, Box<dyn Error>> {
     rdrive::probe().unwrap();
     ```
 
+5. 获取设备：
+
+    ```rust
+    let mut ls = rdrive::read(|m| m.timer.all());
+    let (_, timer) = ls.pop()?;
+
+    let mut timer = timer.upgrade()?.spin_try_borrow_by(0.into());
+
+    // 可自由使用 mut timer，此时其他任务尝试借用会返回 Error
+    ```
+
 可参照样例：
 
 [初始化](https://github.com/qclic/sparreal-os/blob/main/crates/sparreal-kernel/src/driver/mod.rs)
 
 [驱动注册](https://github.com/qclic/sparreal-os/blob/main/crates/sparreal-rt/src/arch/aarch64/gic/gic_v3.rs)
+
+[设备获取](https://github.com/qclic/sparreal-os/blob/main/crates/sparreal-kernel/src/time/mod.rs)
