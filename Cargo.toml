@@ -1,15 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "rdif-base",
-    "rdif-intc",
-    "rdif-timer",
-    "rdrive-macro-utils",
-    "rdrive-macros",
-    "rdrive",
-]
-exclude = ["xtask"]
-
+members = ["interface/*", "rdrive-macro-utils", "rdrive-macros", "rdrive"]
 
 [workspace.package]
 edition = "2024"
