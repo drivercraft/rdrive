@@ -1,0 +1,12 @@
+[package]
+name = "rdif-base"
+version = "0.1.2"
+edition.workspace = true
+authors = ["周睿 <zrufo747@outlook.com>"]
+repository = "https://github.com/qclic/sparreal-os"
+license = "MIT"
+description = "Driver Interface base definition."
+keywords = ["os", "driver"]
+categories = ["embedded", "no-std"]
+
+[dependencies]

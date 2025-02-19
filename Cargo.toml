@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "rdif-base",
+    "rdif-intc",
+    "rdif-timer",
+    "rdrive-macro-utils",
+    "rdrive-macros",
+    "rdrive",
+]
+exclude = ["xtask"]
+
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+log = "0.4"

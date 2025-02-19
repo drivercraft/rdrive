@@ -1,0 +1,15 @@
+[package]
+name = "rdrive-macros"
+version = "0.1.0"
+edition.workspace = true
+license = "MIT"
+description = "macros for rdrive"
+authors = ["周睿 <zrufo747@outlook.com>"]
+repository = "https://github.com/qclic/sparreal-os/tree/main/crates/rdrive/rdrive-macros"
+categories = ["embedded", "no-std"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+rdrive-macro-utils = { version = "0.1", path = "../rdrive-macro-utils" }
