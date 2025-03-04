@@ -8,7 +8,11 @@ extern crate syn;
 use proc_macro::TokenStream;
 use syn::parse_str;
 
-pub fn module_driver_with_linker(input: TokenStream, use_prefix: &str) -> TokenStream {
+pub fn module_driver_with_linker(
+    input: TokenStream,
+    use_prefix: &str,
+    link_section: Option<&str>,
+) -> TokenStream {
     let input = proc_macro2::TokenStream::from(input);
     let mut name = None;
 
@@ -37,8 +41,10 @@ pub fn module_driver_with_linker(input: TokenStream, use_prefix: &str) -> TokenS
     let path_str = format!("{}::DriverRegister", use_prefix.trim_end_matches("::"));
     let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
 
+    let section = link_section.unwrap_or(".rodata.driver.register");
+
     quote! {
-        #[unsafe(link_section = ".driver.register")]
+        #[unsafe(link_section = #section)]
         #[unsafe(no_mangle)]
         #[used(linker)]
         pub static #static_name: #type_register = #type_register{
