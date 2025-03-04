@@ -41,7 +41,7 @@ pub fn module_driver_with_linker(
     let path_str = format!("{}::DriverRegister", use_prefix.trim_end_matches("::"));
     let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
 
-    let section = link_section.unwrap_or(".rodata.driver.register");
+    let section = link_section.unwrap_or(".driver.register");
 
     quote! {
         #[unsafe(link_section = #section)]
