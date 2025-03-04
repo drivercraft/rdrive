@@ -12,4 +12,4 @@ categories = ["embedded", "no-std"]
 proc-macro = true
 
 [dependencies]
-rdrive-macro-utils = { version = "0.1", path = "../rdrive-macro-utils" }
+rdrive-macro-utils = { version = "0.2", path = "../rdrive-macro-utils" }
