@@ -6,7 +6,6 @@ use alloc::vec::Vec;
 use core::ptr::NonNull;
 use error::DriverError;
 pub use fdt_parser::Phandle;
-use log::debug;
 pub use register::DriverKind;
 
 use spin::Mutex;
