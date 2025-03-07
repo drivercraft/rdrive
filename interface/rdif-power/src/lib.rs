@@ -4,10 +4,10 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-pub use rdif_base::{DriverGeneric, DriverResult, IrqConfig, IrqId, Trigger};
+pub use rdif_base::DriverGeneric;
 
 pub type Hardware = Box<dyn Interface>;
 
-pub trait Interface: Send {
+pub trait Interface: DriverGeneric {
     fn shutdown(&mut self);
 }
