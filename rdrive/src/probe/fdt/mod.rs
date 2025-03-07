@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use core::{error::Error, ptr::NonNull};
 use log::debug;
+use rdif_intc::Capability;
 
 use fdt_parser::{Fdt, Node, Phandle, Status};
 use rdif_base::IrqConfig;
@@ -94,12 +95,25 @@ impl ProbeData {
                     irqs: irqs.clone(),
                 };
 
-                if let HardwareKind::Intc(_irq) = &dev {
+                if let HardwareKind::Intc(intc) = &dev {
                     descriptor.irq_parent = None;
                     let phandle = register
                         .node
                         .phandle()
                         .ok_or(DriverError::Fdt("intc no phandle".into()))?;
+
+                    let mut parser = None;
+
+                    for cap in intc.capabilities() {
+                        match cap {
+                            Capability::FdtParseConfigFn(f) => parser = Some(f),
+                        }
+                    }
+
+                    let parser = parser.ok_or(DriverError::Fdt("intc no irq parser".into()))?;
+
+                    self.phandle_2_irq_parse.insert(phandle, parser);
+
                     self.phandle_2_device_id
                         .insert(phandle, descriptor.device_id);
                 }

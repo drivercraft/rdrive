@@ -6,5 +6,5 @@ edition.workspace = true
 [dependencies]
 rdrive = { workspace = true }
 env_logger = "0.11"
-rdif-intc = "0.1"
+rdif-intc = "0.2"
 log ="0.4"

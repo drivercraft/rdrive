@@ -1,5 +1,6 @@
 use std::{error::Error, ptr::NonNull};
 
+use rdif_intc::IrqConfig;
 use rdrive::{
     probe::HardwareKind,
     register::{DriverKind, FdtInfo, ProbeKind},
@@ -64,6 +65,17 @@ impl rdif_intc::Interface for IrqTest {
     fn set_target_cpu(&mut self, _irq: rdrive::IrqId, _cpu: rdif_intc::CpuId) {
         todo!()
     }
+
+    fn capabilities(&self) -> Vec<rdif_intc::Capability> {
+        vec![rdif_intc::Capability::FdtParseConfigFn(parser)]
+    }
+}
+
+fn parser(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>> {
+    Ok(IrqConfig {
+        irq: 0.into(),
+        trigger: rdif_intc::Trigger::EdgeBoth,
+    })
 }
 
 fn probe_intc(_info: FdtInfo) -> Result<Vec<HardwareKind>, Box<dyn Error>> {
