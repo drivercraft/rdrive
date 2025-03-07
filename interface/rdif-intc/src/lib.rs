@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
+pub use alloc::{boxed::Box, vec::Vec};
 use core::error::Error;
 
 use rdif_base::custom_type;
@@ -35,4 +35,11 @@ pub trait Interface: DriverGeneric {
     fn set_priority(&mut self, irq: IrqId, priority: usize);
     fn set_trigger(&mut self, irq: IrqId, trigger: Trigger);
     fn set_target_cpu(&mut self, irq: IrqId, cpu: CpuId);
+    fn capabilities(&self) -> Vec<Capability> {
+        Vec::new()
+    }
+}
+
+pub enum Capability {
+    FdtParseConfigFn(FdtParseConfigFn),
 }

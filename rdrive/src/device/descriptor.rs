@@ -1,5 +1,8 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
+pub use alloc::vec::Vec;
+pub use rdif_base::*;
+
 use crate::custom_id;
 
 custom_id!(DeviceId, u64);
@@ -10,12 +13,14 @@ pub struct Descriptor {
     pub device_id: DeviceId,
     pub name: &'static str,
     pub irq_parent: Option<DeviceId>,
+    pub irqs: Vec<IrqConfig>,
 }
+
+static ITER: AtomicU64 = AtomicU64::new(0);
 
 impl DeviceId {
     pub fn new() -> Self {
-        static ITER: AtomicU64 = AtomicU64::new(0);
-        Self(ITER.fetch_add(1, Ordering::Relaxed))
+        Self(ITER.fetch_add(1, Ordering::SeqCst))
     }
 }
 

@@ -134,13 +134,10 @@ impl<T> Default for Container<T> {
 
 pub struct ProbedDevice {
     pub register_id: usize,
-    pub kind: DeviceKind,
+    pub dev: DeviceKind,
 }
 
 pub enum DeviceKind {
-    Intc {
-        dev: Device<intc::Hardware>,
-        fdt_parse_fn: Option<intc::FdtParseConfigFn>,
-    },
+    Intc(Device<intc::Hardware>),
     Timer(Device<timer::Hardware>),
 }

@@ -1,15 +1,16 @@
-use crate::DriverInfoKind;
+use core::ptr::NonNull;
+
+use crate::{Descriptor, DriverInfoKind};
 
 pub(crate) mod fdt;
 
 pub enum ProbeData {
     Fdt(fdt::ProbeData),
-    Static,
 }
 
 impl Default for ProbeData {
     fn default() -> Self {
-        Self::Static
+        Self::Fdt(fdt::ProbeData::new(NonNull::dangling()))
     }
 }
 
@@ -17,7 +18,17 @@ impl From<DriverInfoKind> for ProbeData {
     fn from(value: DriverInfoKind) -> Self {
         match value {
             DriverInfoKind::Fdt { addr } => ProbeData::Fdt(fdt::ProbeData::new(addr)),
-            DriverInfoKind::Static => ProbeData::Static,
         }
     }
+}
+
+pub enum HardwareKind {
+    Intc(rdif_intc::Hardware),
+    Timer(rdif_timer::Hardware),
+}
+
+pub struct ProbedDevice {
+    pub register_id: usize,
+    pub descriptor: Descriptor,
+    pub dev: HardwareKind,
 }

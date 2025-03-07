@@ -1,61 +1,37 @@
-use alloc::collections::BTreeSet;
-use alloc::{boxed::Box, vec::Vec};
-use core::{error::Error, ops::Deref};
+use alloc::{collections::BTreeSet, vec::Vec};
+use core::ops::Deref;
 
-use crate::DeviceKind;
-use crate::intc::{FdtParseConfigFn, IrqConfig};
+use crate::intc::IrqConfig;
+use crate::probe::fdt;
 pub use fdt_parser::Node;
-
-pub mod intc;
-pub mod power;
-pub mod timer;
 
 #[derive(Clone)]
 pub struct DriverRegister {
     pub name: &'static str,
+    pub kind: DriverKind,
     pub probe_kinds: &'static [ProbeKind],
 }
 
 unsafe impl Send for DriverRegister {}
 unsafe impl Sync for DriverRegister {}
 
+#[derive(Debug, Clone, Copy)]
+pub enum DriverKind {
+    Intc,
+    Timer,
+    Other,
+}
+
 pub enum ProbeKind {
     Fdt {
         compatibles: &'static [&'static str],
-        on_probe: OnProbeKindFdt,
+        on_probe: fdt::FnOnProbe,
     },
 }
 
-pub type OnProbeFdt = fn(node: Node<'_>) -> Result<DeviceKind, Box<dyn Error>>;
-
 pub struct FdtInfo<'a> {
     pub node: Node<'a>,
-    pub irq_parse: FdtParseConfigFn,
-}
-
-impl FdtInfo<'_> {
-    pub fn node_irqs(&self) -> Result<Vec<IrqConfig>, Box<dyn Error>> {
-        let irqs = match self.node.interrupts() {
-            Some(i) => i,
-            None => return Ok(Vec::new()),
-        };
-
-        let irqs = irqs.map(|one| one.collect::<Vec<_>>()).collect::<Vec<_>>();
-
-        let mut out = Vec::with_capacity(irqs.len());
-
-        for irq_raw in irqs {
-            out.push((self.irq_parse)(&irq_raw)?);
-        }
-
-        Ok(out)
-    }
-}
-
-#[derive(Clone)]
-pub enum OnProbeKindFdt {
-    Intc(intc::OnProbeFdt),
-    Timer(timer::OnProbeFdt),
+    pub irqs: Vec<IrqConfig>,
 }
 
 #[repr(C)]

@@ -7,10 +7,14 @@ use rdif_base::IrqConfig;
 pub use rdif_intc::FdtParseConfigFn;
 
 use crate::{
-    Descriptor, Device, DeviceId, DeviceKind, DriverRegister, ProbedDevice,
+    Descriptor, DeviceId, DriverRegister,
     error::DriverError,
-    register::{FdtInfo, OnProbeKindFdt, ProbeKind},
+    register::{FdtInfo, ProbeKind},
 };
+
+use super::{HardwareKind, ProbedDevice};
+
+pub type FnOnProbe = fn(node: FdtInfo<'_>) -> Result<Vec<HardwareKind>, Box<dyn Error>>;
 
 pub struct ProbeData {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
@@ -59,52 +63,53 @@ impl ProbeData {
         let mut out = Vec::new();
 
         for register in registers {
-            let mut descriptor = register.descriptor.clone();
-            debug!("Probe {}", descriptor.name);
-            let kind = match register.on_probe {
-                OnProbeKindFdt::Intc(on_probe) => {
-                    let info = on_probe(register.node.clone())?;
+            debug!("Probe {}", register.node.name);
+            let mut irqs = Vec::new();
+            let mut irq_parent = None;
+
+            if let Some(parent) = register
+                .node
+                .interrupt_parent()
+                .and_then(|i| i.node.phandle())
+            {
+                irq_parent = self.phandle_2_device_id.get(&parent).cloned();
+                if let Some(raws) = register.node.interrupts() {
+                    let irq_parse = *self.phandle_2_irq_parse.get(&parent).unwrap();
+                    for raw in raws {
+                        let irq = irq_parse(&raw.collect::<Vec<_>>())?;
+                        irqs.push(irq);
+                    }
+                }
+            }
+
+            let mut dev_list = (register.on_probe)(FdtInfo {
+                node: register.node.clone(),
+                irqs: irqs.clone(),
+            })?;
+
+            while let Some(dev) = dev_list.pop() {
+                let descriptor = Descriptor {
+                    name: register.name,
+                    device_id: DeviceId::new(),
+                    irq_parent,
+                    irqs: irqs.clone(),
+                };
+
+                if let HardwareKind::Intc(_irq) = &dev {
                     let phandle = register
                         .node
                         .phandle()
                         .ok_or(DriverError::Fdt("intc no phandle".into()))?;
-                    self.phandle_2_irq_parse
-                        .insert(phandle, info.fdt_parse_config_fn);
-
-                    let device_id = descriptor.device_id;
-
-                    self.phandle_2_device_id.insert(phandle, device_id);
-                    DeviceKind::Intc(Device::new(descriptor, info.hardware))
+                    self.phandle_2_device_id
+                        .insert(phandle, descriptor.device_id);
                 }
-                OnProbeKindFdt::Timer(on_probe) => {
-                    let parent = register
-                        .node
-                        .interrupt_parent()
-                        .ok_or(DriverError::Fdt("timer no interrupt parent".into()))?
-                        .node
-                        .phandle()
-                        .ok_or(DriverError::Fdt("interrupt controller no phandle".into()))?;
 
-                    let irq_parse = *self.phandle_2_irq_parse.get(&parent).unwrap();
-                    let info = FdtInfo {
-                        node: register.node.clone(),
-                        irq_parse,
-                    };
-
-                    descriptor.irq_parent = self.phandle_2_device_id.get(&parent).cloned();
-
-                    debug!("irq parent: {:?}", descriptor.irq_parent);
-
-                    let hardware = on_probe(info)?;
-
-                    DeviceKind::Timer(Device::new(descriptor, hardware))
-                }
-            };
-
-            out.push(ProbedDevice {
-                register_id: register.register_index,
-                kind,
-            });
+                out.push(ProbedDevice {
+                    register_id: register.register_index,
+                    descriptor,
+                    dev,
+                });
+            }
         }
 
         Ok(out)
@@ -133,13 +138,9 @@ impl ProbeData {
                             for campatible in &node_compatibles {
                                 if compatibles.contains(campatible) {
                                     vec.push(ProbeFdtInfo {
+                                        name: register.name,
                                         node: node.clone(),
                                         on_probe: on_probe.clone(),
-                                        descriptor: Descriptor {
-                                            name: register.name,
-                                            device_id: DeviceId::new(),
-                                            ..Default::default()
-                                        },
                                         register_index: *i,
                                     });
                                 }
@@ -155,8 +156,8 @@ impl ProbeData {
 }
 
 pub struct ProbeFdtInfo<'a> {
+    name: &'static str,
     pub node: Node<'a>,
-    pub on_probe: OnProbeKindFdt,
-    pub descriptor: Descriptor,
+    pub on_probe: FnOnProbe,
     register_index: usize,
 }

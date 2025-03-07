@@ -1,9 +1,16 @@
 [workspace]
 resolver = "2"
-members = ["interface/*", "rdrive-macro-utils", "rdrive-macros", "rdrive"]
+members = [
+    "interface/*",
+    "rdrive-macro-utils",
+    "rdrive-macros",
+    "rdrive",
+    "examples/enumerate",
+]
 
 [workspace.package]
 edition = "2024"
 
 [workspace.dependencies]
 log = "0.4"
+rdrive = { path = "rdrive" }

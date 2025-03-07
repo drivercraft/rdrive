@@ -26,7 +26,6 @@ static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 #[derive(Debug, Clone)]
 pub enum DriverInfoKind {
     Fdt { addr: NonNull<u8> },
-    Static,
 }
 
 unsafe impl Send for DriverInfoKind {}

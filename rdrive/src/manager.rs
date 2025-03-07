@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 
 use crate::{
-    DeviceKind, DriverInfoKind, DriverRegister,
-    probe::ProbeData,
-    register::{OnProbeKindFdt, ProbeKind, RegisterContainer},
+    Device, DriverInfoKind, DriverRegister,
+    probe::{HardwareKind, ProbeData},
+    register::{DriverKind, ProbeKind, RegisterContainer},
 };
 
 use crate::error::DriverError;
@@ -31,23 +31,7 @@ impl Manager {
             .registers
             .unregistered()
             .into_iter()
-            .filter(|(_, e)| {
-                let mut has = false;
-                for kind in e.probe_kinds {
-                    match kind {
-                        ProbeKind::Fdt {
-                            compatibles: _,
-                            on_probe,
-                        } => {
-                            if matches!(on_probe, OnProbeKindFdt::Intc(_)) {
-                                has = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                has
-            })
+            .filter(|(_, e)| matches!(e.kind, DriverKind::Intc))
             .collect::<Vec<_>>();
 
         self.probe_with(&ls)
@@ -58,25 +42,8 @@ impl Manager {
             .registers
             .unregistered()
             .into_iter()
-            .filter(|(_, e)| {
-                let mut has = false;
-                for kind in e.probe_kinds {
-                    match kind {
-                        ProbeKind::Fdt {
-                            compatibles: _,
-                            on_probe,
-                        } => {
-                            if matches!(on_probe, OnProbeKindFdt::Timer(_)) {
-                                has = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                has
-            })
+            .filter(|(_, e)| matches!(e.kind, DriverKind::Timer))
             .collect::<Vec<_>>();
-
         self.probe_with(&ls)
     }
 
@@ -89,22 +56,18 @@ impl Manager {
     fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), DriverError> {
         let probed_list = match &mut self.probe_kind {
             ProbeData::Fdt(probe_data) => probe_data.probe(registers)?,
-            ProbeData::Static => Vec::new(),
         };
 
         for probed in probed_list {
-            match probed.kind {
-                DeviceKind::Intc {
-                    dev,
-                    fdt_parse_fn: _,
-                } => {
-                    self.intc.insert(dev);
+            self.registers.set_probed(probed.register_id);
+            match probed.dev {
+                HardwareKind::Intc(interface) => {
+                    self.intc.insert(Device::new(probed.descriptor, interface));
                 }
-                DeviceKind::Timer(device) => {
-                    self.timer.insert(device);
+                HardwareKind::Timer(interface) => {
+                    self.timer.insert(Device::new(probed.descriptor, interface));
                 }
             }
-            self.registers.set_probed(probed.register_id);
         }
 
         Ok(())
