@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, format, vec::Vec};
 use core::{error::Error, ptr::NonNull};
 use log::debug;
 use rdif_intc::Capability;
@@ -43,7 +43,10 @@ impl ProbeData {
         parent: Phandle,
         irq_cell: &[u32],
     ) -> Result<IrqConfig, Box<dyn Error>> {
-        let f = self.phandle_2_irq_parse[&parent];
+        let f = self
+            .phandle_2_irq_parse
+            .get(&parent)
+            .ok_or(format!("{:#x} no irq parser").into())?;
         f(irq_cell)
     }
 
@@ -76,8 +79,9 @@ impl ProbeData {
                 irq_parent = self.phandle_2_device_id.get(&parent).cloned();
                 if let Some(raws) = register.node.interrupts() {
                     for raw in raws {
-                        let irq = self.parse_irq(parent, &raw.collect::<Vec<_>>())?;
-                        irqs.push(irq);
+                        if let Ok(irq) = self.parse_irq(parent, &raw.collect::<Vec<_>>()) {
+                            irqs.push(irq);
+                        }
                     }
                 }
             }
