@@ -46,7 +46,7 @@ impl ProbeData {
         let f = self
             .phandle_2_irq_parse
             .get(&parent)
-            .ok_or(format!("{:#x} no irq parser").into())?;
+            .ok_or(format!("{} no irq parser", parent))?;
         f(irq_cell)
     }
 
