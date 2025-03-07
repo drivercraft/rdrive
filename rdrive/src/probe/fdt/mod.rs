@@ -157,6 +157,7 @@ impl ProbeData {
                                         on_probe: *on_probe,
                                         register_index: *i,
                                     });
+                                    break;
                                 }
                             }
                         }
