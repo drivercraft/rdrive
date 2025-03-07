@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use crate::{
     Device, DriverInfoKind, DriverRegister,
     probe::{HardwareKind, ProbeData},
-    register::{DriverKind, ProbeKind, RegisterContainer},
+    register::{DriverKind, RegisterContainer},
 };
 
 use crate::error::DriverError;

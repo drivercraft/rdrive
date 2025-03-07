@@ -131,13 +131,3 @@ impl<T> Default for Container<T> {
         }
     }
 }
-
-pub struct ProbedDevice {
-    pub register_id: usize,
-    pub dev: DeviceKind,
-}
-
-pub enum DeviceKind {
-    Intc(Device<intc::Hardware>),
-    Timer(Device<timer::Hardware>),
-}

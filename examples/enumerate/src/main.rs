@@ -6,7 +6,9 @@ use rdrive::{
 };
 
 fn main() {
-    env_logger::builder().filter_level(log::LevelFilter::Debug).init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
 
     let fdt = include_bytes!("../../../data/qemu.dtb");
 
@@ -43,27 +45,27 @@ impl rdif_intc::Interface for IrqTest {
         todo!()
     }
 
-    fn irq_enable(&mut self, irq: rdrive::IrqId) {
+    fn irq_enable(&mut self, _irq: rdrive::IrqId) {
         todo!()
     }
 
-    fn irq_disable(&mut self, irq: rdrive::IrqId) {
+    fn irq_disable(&mut self, _irq: rdrive::IrqId) {
         todo!()
     }
 
-    fn set_priority(&mut self, irq: rdrive::IrqId, priority: usize) {
+    fn set_priority(&mut self, _irq: rdrive::IrqId, _priority: usize) {
         todo!()
     }
 
-    fn set_trigger(&mut self, irq: rdrive::IrqId, trigger: rdif_intc::Trigger) {
+    fn set_trigger(&mut self, _irq: rdrive::IrqId, _trigger: rdif_intc::Trigger) {
         todo!()
     }
 
-    fn set_target_cpu(&mut self, irq: rdrive::IrqId, cpu: rdif_intc::CpuId) {
+    fn set_target_cpu(&mut self, _irq: rdrive::IrqId, _cpu: rdif_intc::CpuId) {
         todo!()
     }
 }
 
-fn probe_intc(info: FdtInfo) -> Result<Vec<HardwareKind>, Box<dyn Error>> {
+fn probe_intc(_info: FdtInfo) -> Result<Vec<HardwareKind>, Box<dyn Error>> {
     Ok(vec![HardwareKind::Intc(Box::new(IrqTest {}))])
 }
