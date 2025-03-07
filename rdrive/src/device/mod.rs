@@ -8,6 +8,7 @@ pub use rdif_base::lock::{LockError, PId};
 
 mod descriptor;
 pub mod intc;
+pub mod power;
 pub mod timer;
 
 pub struct Device<T> {
