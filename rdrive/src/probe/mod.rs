@@ -25,6 +25,7 @@ impl From<DriverInfoKind> for ProbeData {
 pub enum HardwareKind {
     Intc(rdif_intc::Hardware),
     Timer(rdif_timer::Hardware),
+    Power(rdif_power::Hardware),
 }
 
 pub struct ProbedDevice {

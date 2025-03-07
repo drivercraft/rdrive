@@ -7,6 +7,7 @@ use core::ptr::NonNull;
 use error::DriverError;
 pub use fdt_parser::Phandle;
 use log::debug;
+pub use register::DriverKind;
 
 use spin::Mutex;
 
@@ -62,13 +63,8 @@ pub fn probe() -> Result<(), DriverError> {
     edit(|manager| manager.probe())
 }
 
-pub fn probe_intc() -> Result<(), DriverError> {
-    edit(|manager| manager.probe_intc())
-}
-
-pub fn probe_timer() -> Result<(), DriverError> {
-    debug!("Probe timer");
-    edit(|manager| manager.probe_timer())
+pub fn probe_with_kind(kind: DriverKind) -> Result<(), DriverError> {
+    edit(|manager| manager.probe_with_kind(kind))
 }
 
 pub fn intc_all() -> Vec<(DeviceId, device::intc::Weak)> {

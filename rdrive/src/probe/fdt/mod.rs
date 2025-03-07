@@ -74,9 +74,8 @@ impl ProbeData {
             {
                 irq_parent = self.phandle_2_device_id.get(&parent).cloned();
                 if let Some(raws) = register.node.interrupts() {
-                    let irq_parse = *self.phandle_2_irq_parse.get(&parent).unwrap();
                     for raw in raws {
-                        let irq = irq_parse(&raw.collect::<Vec<_>>())?;
+                        let irq = self.parse_irq(parent, &raw.collect::<Vec<_>>())?;
                         irqs.push(irq);
                     }
                 }
@@ -88,7 +87,7 @@ impl ProbeData {
             })?;
 
             while let Some(dev) = dev_list.pop() {
-                let descriptor = Descriptor {
+                let mut descriptor = Descriptor {
                     name: register.name,
                     device_id: DeviceId::new(),
                     irq_parent,
@@ -96,6 +95,7 @@ impl ProbeData {
                 };
 
                 if let HardwareKind::Intc(_irq) = &dev {
+                    descriptor.irq_parent = None;
                     let phandle = register
                         .node
                         .phandle()
@@ -140,7 +140,7 @@ impl ProbeData {
                                     vec.push(ProbeFdtInfo {
                                         name: register.name,
                                         node: node.clone(),
-                                        on_probe: on_probe.clone(),
+                                        on_probe: *on_probe,
                                         register_index: *i,
                                     });
                                 }

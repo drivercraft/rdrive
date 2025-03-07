@@ -25,7 +25,7 @@ fn main() {
     };
 
     rdrive::register_add(register);
-    rdrive::probe_intc().unwrap();
+    rdrive::probe_with_kind(DriverKind::Intc).unwrap();
 }
 
 struct IrqTest {}

@@ -15,6 +15,7 @@ pub struct Manager {
     pub registers: RegisterContainer,
     pub intc: device::intc::Container,
     pub timer: device::timer::Container,
+    pub power: device::Container<rdif_power::Hardware>,
     pub probe_kind: ProbeData,
 }
 
@@ -26,24 +27,14 @@ impl Manager {
         }
     }
 
-    pub fn probe_intc(&mut self) -> Result<(), DriverError> {
+    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), DriverError> {
         let ls = self
             .registers
             .unregistered()
             .into_iter()
-            .filter(|(_, e)| matches!(e.kind, DriverKind::Intc))
+            .filter(|(_, e)| e.kind == kind)
             .collect::<Vec<_>>();
 
-        self.probe_with(&ls)
-    }
-
-    pub fn probe_timer(&mut self) -> Result<(), DriverError> {
-        let ls = self
-            .registers
-            .unregistered()
-            .into_iter()
-            .filter(|(_, e)| matches!(e.kind, DriverKind::Timer))
-            .collect::<Vec<_>>();
         self.probe_with(&ls)
     }
 
@@ -66,6 +57,9 @@ impl Manager {
                 }
                 HardwareKind::Timer(interface) => {
                     self.timer.insert(Device::new(probed.descriptor, interface));
+                }
+                HardwareKind::Power(interface) => {
+                    self.power.insert(Device::new(probed.descriptor, interface));
                 }
             }
         }

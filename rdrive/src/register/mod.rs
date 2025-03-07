@@ -15,10 +15,11 @@ pub struct DriverRegister {
 unsafe impl Send for DriverRegister {}
 unsafe impl Sync for DriverRegister {}
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriverKind {
     Intc,
     Timer,
+    Power,
     Other,
 }
 
