@@ -94,8 +94,11 @@ impl Manager {
 
         for probed in probed_list {
             match probed.kind {
-                DeviceKind::Intc(device) => {
-                    self.intc.insert(device);
+                DeviceKind::Intc {
+                    dev,
+                    fdt_parse_fn: _,
+                } => {
+                    self.intc.insert(dev);
                 }
                 DeviceKind::Timer(device) => {
                     self.timer.insert(device);

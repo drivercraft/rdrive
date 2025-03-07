@@ -138,6 +138,9 @@ pub struct ProbedDevice {
 }
 
 pub enum DeviceKind {
-    Intc(Device<intc::Hardware>),
+    Intc {
+        dev: Device<intc::Hardware>,
+        fdt_parse_fn: Option<intc::FdtParseConfigFn>,
+    },
     Timer(Device<timer::Hardware>),
 }

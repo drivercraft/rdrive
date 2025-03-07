@@ -2,10 +2,12 @@ use alloc::collections::BTreeSet;
 use alloc::{boxed::Box, vec::Vec};
 use core::{error::Error, ops::Deref};
 
+use crate::DeviceKind;
 use crate::intc::{FdtParseConfigFn, IrqConfig};
 pub use fdt_parser::Node;
 
 pub mod intc;
+pub mod power;
 pub mod timer;
 
 #[derive(Clone)]
@@ -23,6 +25,8 @@ pub enum ProbeKind {
         on_probe: OnProbeKindFdt,
     },
 }
+
+pub type OnProbeFdt = fn(node: Node<'_>) -> Result<DeviceKind, Box<dyn Error>>;
 
 pub struct FdtInfo<'a> {
     pub node: Node<'a>,
