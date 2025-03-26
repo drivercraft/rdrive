@@ -1,14 +1,26 @@
 #![no_std]
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
 #[macro_use]
 mod _macro;
 
 pub mod io;
+#[cfg(feature = "alloc")]
 pub mod lock;
 
-pub type DriverResult<T = ()> = core::result::Result<T, alloc::boxed::Box<dyn core::error::Error>>;
+#[derive(Debug, Clone, Copy)]
+pub enum Error {
+    NoDev,
+    InvalidIo,
+    Busy,
+    InvalidArgument,
+    NoMemory,
+    Timeout,
+}
+
+pub type DriverResult<T = ()> = core::result::Result<T, Error>;
 
 pub trait DriverGeneric: Send {
     fn open(&mut self) -> DriverResult;

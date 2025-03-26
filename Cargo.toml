@@ -10,6 +10,7 @@ members = [
 
 [workspace.package]
 edition = "2024"
+repository = "https://github.com/drivercraft/rdrive"
 
 [workspace.dependencies]
 log = "0.4"

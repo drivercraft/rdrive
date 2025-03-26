@@ -1,15 +1,13 @@
 [package]
-name = "rdif-base"
-version = "0.2.0"
+name = "rdif-serial"
+version = "0.1.0"
 edition.workspace = true
-authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
+authors = ["周睿 <zrufo747@outlook.com>"]
 license = "MIT"
 description = "Driver Interface base definition."
 keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
-[features]
-alloc = []
-
 [dependencies]
+rdif-base = { path = "../rdif-base", version = "0.1" }
