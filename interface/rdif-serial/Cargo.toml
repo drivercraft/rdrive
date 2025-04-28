@@ -11,3 +11,4 @@ categories = ["embedded", "no-std"]
 
 [dependencies]
 rdif-base = { path = "../rdif-base", version = "0.2" }
+embedded-hal-nb = "1.0"
