@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::{
     Device, DriverInfoKind, DriverRegister,
-    probe::{HardwareKind, ProbeData},
+    probe::{HardwareKind, ProbeKind},
     register::{DriverKind, RegisterContainer},
 };
 
@@ -16,7 +16,7 @@ pub struct Manager {
     pub intc: device::intc::Container,
     pub timer: device::timer::Container,
     pub power: device::Container<rdif_power::Hardware>,
-    pub probe_kind: ProbeData,
+    pub probe_kind: ProbeKind,
 }
 
 impl Manager {
@@ -46,7 +46,7 @@ impl Manager {
 
     fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), DriverError> {
         let probed_list = match &mut self.probe_kind {
-            ProbeData::Fdt(probe_data) => probe_data.probe(registers)?,
+            ProbeKind::Fdt(probe_data) => probe_data.probe(registers)?,
         };
 
         for probed in probed_list {

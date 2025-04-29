@@ -1,7 +1,8 @@
 use std::{error::Error, ptr::NonNull};
 
-use rdif_intc::IrqConfig;
 use rdrive::{
+    DriverResult,
+    intc::{IrqConfig, IrqId},
     probe::HardwareKind,
     register::{DriverKind, FdtInfo, ProbeKind},
 };
@@ -31,50 +32,50 @@ fn main() {
 
 struct IrqTest {}
 
-impl rdif_intc::DriverGeneric for IrqTest {
-    fn open(&mut self) -> rdrive::DriverResult {
+impl rdrive::intc::DriverGeneric for IrqTest {
+    fn open(&mut self) -> DriverResult {
         todo!()
     }
 
-    fn close(&mut self) -> rdrive::DriverResult {
+    fn close(&mut self) -> DriverResult {
         todo!()
     }
 }
 
-impl rdif_intc::Interface for IrqTest {
-    fn current_cpu_setup(&self) -> rdif_intc::HardwareCPU {
+impl rdrive::intc::Interface for IrqTest {
+    fn current_cpu_setup(&self) -> rdrive::intc::HardwareCPU {
         todo!()
     }
 
-    fn irq_enable(&mut self, _irq: rdrive::IrqId) {
+    fn irq_enable(&mut self, _irq: IrqId) {
         todo!()
     }
 
-    fn irq_disable(&mut self, _irq: rdrive::IrqId) {
+    fn irq_disable(&mut self, _irq: IrqId) {
         todo!()
     }
 
-    fn set_priority(&mut self, _irq: rdrive::IrqId, _priority: usize) {
+    fn set_priority(&mut self, _irq: IrqId, _priority: usize) {
         todo!()
     }
 
-    fn set_trigger(&mut self, _irq: rdrive::IrqId, _trigger: rdif_intc::Trigger) {
+    fn set_trigger(&mut self, _irq: IrqId, _trigger: rdrive::intc::Trigger) {
         todo!()
     }
 
-    fn set_target_cpu(&mut self, _irq: rdrive::IrqId, _cpu: rdif_intc::CpuId) {
+    fn set_target_cpu(&mut self, _irq: IrqId, _cpu: rdrive::intc::CpuId) {
         todo!()
     }
 
-    fn capabilities(&self) -> Vec<rdif_intc::Capability> {
-        vec![rdif_intc::Capability::FdtParseConfigFn(parser)]
+    fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
+        vec![rdrive::intc::Capability::FdtParseConfigFn(parser)]
     }
 }
 
 fn parser(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>> {
     Ok(IrqConfig {
         irq: 0.into(),
-        trigger: rdif_intc::Trigger::EdgeBoth,
+        trigger: rdrive::intc::Trigger::EdgeBoth,
     })
 }
 

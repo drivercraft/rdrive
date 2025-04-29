@@ -17,15 +17,15 @@ use super::{HardwareKind, ProbedDevice};
 
 pub type FnOnProbe = fn(node: FdtInfo<'_>) -> Result<Vec<HardwareKind>, Box<dyn Error>>;
 
-pub struct ProbeData {
+pub struct ProbeFunc {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
     phandle_2_irq_parse: BTreeMap<Phandle, FdtParseConfigFn>,
     fdt_addr: NonNull<u8>,
 }
 
-unsafe impl Send for ProbeData {}
+unsafe impl Send for ProbeFunc {}
 
-impl ProbeData {
+impl ProbeFunc {
     pub fn new(fdt_addr: NonNull<u8>) -> Self {
         Self {
             phandle_2_device_id: Default::default(),
