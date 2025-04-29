@@ -1,7 +1,6 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::ops::Deref;
 
-use crate::intc::IrqConfig;
 use crate::probe::fdt;
 pub use fdt_parser::Node;
 

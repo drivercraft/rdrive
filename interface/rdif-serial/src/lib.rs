@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::sync::Arc;
 
 use rdif_base::DriverGeneric;
 
@@ -59,5 +59,3 @@ pub struct DeviceSerial {
     tx: Option<Arc<dyn Serial>>,
     rx: Option<Arc<dyn Serial>>,
 }
-
-

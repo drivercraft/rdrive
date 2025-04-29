@@ -23,7 +23,7 @@ impl From<FdtError<'_>> for ProbeError {
     }
 }
 
-pub(crate) enum ProbeKind {
+pub enum ProbeKind {
     Fdt(fdt::ProbeFunc),
 }
 
