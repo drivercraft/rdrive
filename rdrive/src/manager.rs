@@ -2,11 +2,9 @@ use alloc::vec::Vec;
 
 use crate::{
     Device, DriverInfoKind, DriverRegister,
-    probe::{HardwareKind, ProbeKind},
+    probe::{HardwareKind, ProbeError, ProbeKind},
     register::{DriverKind, RegisterContainer},
 };
-
-use crate::error::DriverError;
 
 use super::device;
 
@@ -27,7 +25,7 @@ impl Manager {
         }
     }
 
-    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), DriverError> {
+    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), ProbeError> {
         let ls = self
             .registers
             .unregistered()
@@ -38,13 +36,13 @@ impl Manager {
         self.probe_with(&ls)
     }
 
-    pub fn probe(&mut self) -> Result<(), DriverError> {
+    pub fn probe(&mut self) -> Result<(), ProbeError> {
         let ls = self.registers.unregistered();
 
         self.probe_with(&ls)
     }
 
-    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), DriverError> {
+    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), ProbeError> {
         let probed_list = match &mut self.probe_kind {
             ProbeKind::Fdt(probe_data) => probe_data.probe(registers)?,
         };

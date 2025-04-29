@@ -1,9 +1,11 @@
-use alloc::{string::String, vec::Vec};
-use core::ptr::NonNull;
+use alloc::{boxed::Box, format, string::String, vec::Vec};
+use core::{error::Error, ptr::NonNull};
+
+use fdt_parser::FdtError;
 
 use crate::{Descriptor, DeviceId, DriverInfoKind, intc::IrqConfig};
 
-pub(crate) mod fdt;
+pub mod fdt;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProbeError {
@@ -11,9 +13,17 @@ pub enum ProbeError {
     IrqNotInit { name: String },
     #[error("fdt parse error: {0}")]
     Fdt(String),
+    #[error("on probe error: {0}")]
+    OnProbe(Box<dyn Error>),
 }
 
-pub enum ProbeKind {
+impl From<FdtError<'_>> for ProbeError {
+    fn from(value: FdtError) -> Self {
+        Self::Fdt(format!("{value:?}"))
+    }
+}
+
+pub(crate) enum ProbeKind {
     Fdt(fdt::ProbeFunc),
 }
 

@@ -30,11 +30,6 @@ pub enum ProbeKind {
     },
 }
 
-pub struct FdtInfo<'a> {
-    pub node: Node<'a>,
-    pub irqs: Vec<IrqConfig>,
-}
-
 #[repr(C)]
 pub struct DriverRegisterSlice {
     data: *const u8,

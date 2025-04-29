@@ -1,10 +1,11 @@
 use std::{error::Error, ptr::NonNull};
 
+use log::debug;
 use rdrive::{
     DriverResult,
     intc::{IrqConfig, IrqId},
-    probe::HardwareKind,
-    register::{DriverKind, FdtInfo, ProbeKind},
+    probe::{HardwareKind, ProbeDevInfo},
+    register::{DriverKind, Node, ProbeKind},
 };
 
 fn main() {
@@ -43,10 +44,6 @@ impl rdrive::intc::DriverGeneric for IrqTest {
 }
 
 impl rdrive::intc::Interface for IrqTest {
-    fn current_cpu_setup(&self) -> rdrive::intc::HardwareCPU {
-        todo!()
-    }
-
     fn irq_enable(&mut self, _irq: IrqId) {
         todo!()
     }
@@ -68,7 +65,11 @@ impl rdrive::intc::Interface for IrqTest {
     }
 
     fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
-        vec![rdrive::intc::Capability::FdtParseConfigFn(parser)]
+        vec![rdrive::intc::Capability::FdtParseConfig(parser)]
+    }
+
+    fn cpu_interface(&self) -> rdrive::intc::HardwareCPU {
+        todo!()
     }
 }
 
@@ -79,6 +80,11 @@ fn parser(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>
     })
 }
 
-fn probe_intc(_info: FdtInfo) -> Result<Vec<HardwareKind>, Box<dyn Error>> {
+fn probe_intc(node: Node<'_>, dev: ProbeDevInfo) -> Result<Vec<HardwareKind>, Box<dyn Error>> {
+    debug!(
+        "on_probe: {}, parent intc {:?}",
+        node.name(),
+        dev.irq_parent
+    );
     Ok(vec![HardwareKind::Intc(Box::new(IrqTest {}))])
 }
