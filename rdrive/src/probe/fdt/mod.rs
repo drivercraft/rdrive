@@ -53,6 +53,7 @@ impl ProbeFunc {
         registers: &[(usize, DriverRegister)],
     ) -> Result<Vec<ProbedDevice>, ProbeError> {
         let fdt = Fdt::from_ptr(self.fdt_addr)?;
+
         let registers = self.get_all_fdt_registers(registers, &fdt);
 
         self.probe_with(&registers)

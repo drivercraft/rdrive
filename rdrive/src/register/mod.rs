@@ -44,8 +44,17 @@ impl DriverRegisterSlice {
     }
 
     pub fn as_slice(&self) -> &[DriverRegister] {
+        if self.len == 0 {
+            return &[];
+        }
         unsafe {
             core::slice::from_raw_parts(self.data as _, self.len / size_of::<DriverRegister>())
+        }
+    }
+    pub fn empty() -> Self {
+        Self {
+            data: core::ptr::null(),
+            len: 0,
         }
     }
 }
