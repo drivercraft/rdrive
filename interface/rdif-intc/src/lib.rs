@@ -21,8 +21,8 @@ pub type FuncFdtParseConfig =
 cfg_if! {
     if #[cfg(target_arch = "aarch64")]{
         pub trait InterfaceCPU: Send + Sync {
-            fn set_eoi_model(&self, b: bool);
-            fn get_eoi_model(&self) -> bool;
+            fn set_eoi_mode(&self, b: bool);
+            fn get_eoi_mode(&self) -> bool;
             fn ack(&self) -> Option<IrqId>;
             fn eoi(&self, intid: IrqId);
             fn dir(&self, intid: IrqId);
