@@ -23,20 +23,20 @@ impl From<FdtError<'_>> for ProbeError {
     }
 }
 
-pub enum ProbeKind {
+pub enum EnumSystem {
     Fdt(fdt::ProbeFunc),
 }
 
-impl Default for ProbeKind {
+impl Default for EnumSystem {
     fn default() -> Self {
         Self::Fdt(fdt::ProbeFunc::new(NonNull::dangling()))
     }
 }
 
-impl From<DriverInfoKind> for ProbeKind {
+impl From<DriverInfoKind> for EnumSystem {
     fn from(value: DriverInfoKind) -> Self {
         match value {
-            DriverInfoKind::Fdt { addr } => ProbeKind::Fdt(fdt::ProbeFunc::new(addr)),
+            DriverInfoKind::Fdt { addr } => EnumSystem::Fdt(fdt::ProbeFunc::new(addr)),
         }
     }
 }
