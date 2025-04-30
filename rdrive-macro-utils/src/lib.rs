@@ -36,20 +36,35 @@ pub fn module_driver_with_linker(
     let st_name = name.unwrap_or_default().replace("-", "_").replace(" ", "_");
 
     let static_name = format_ident!("DRIVER_{}", st_name.to_uppercase());
+    let mod_name = format_ident!("__{}", st_name.to_lowercase());
 
     // 解析路径
     let path_str = format!("{}::DriverRegister", use_prefix.trim_end_matches("::"));
     let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
 
+    let path_driver_kind = format!("{}::DriverKind", use_prefix.trim_end_matches("::"));
+    let type_driver_kind: syn::Path = parse_str(&path_driver_kind).expect("Failed to parse path");
+
+    let path_probe_kind = format!("{}::register::ProbeKind", use_prefix.trim_end_matches("::"));
+    let type_probe_kind: syn::Path = parse_str(&path_probe_kind).expect("Failed to parse path");
+
+
     let section = link_section.unwrap_or(".driver.register");
 
     quote! {
-        #[unsafe(link_section = #section)]
-        #[unsafe(no_mangle)]
-        #[used(linker)]
-        pub static #static_name: #type_register = #type_register{
-            #input
-        };
+
+        mod #mod_name{
+            use super::*;
+            use #type_driver_kind;
+            use #type_probe_kind;
+
+            #[unsafe(link_section = #section)]
+            #[unsafe(no_mangle)]
+            #[used(linker)]
+            pub static #static_name: #type_register = #type_register{
+                #input
+            };
+        }
     }
     .into()
 }

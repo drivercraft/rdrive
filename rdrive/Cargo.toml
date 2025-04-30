@@ -14,9 +14,16 @@ spin = "0.10"
 fdt-parser = "0.4"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
+# rdif-base = { version = "0.2", features = [
+#     "alloc",
+# ], path = "../interface/rdif-base" }
+# rdif-intc = { version = "0.4", path = "../interface/rdif-intc" }
+# rdif-timer = { version = "0.2", path = "../interface/rdif-timer" }
+# rdif-power = { version = "0.2", path = "../interface/rdif-power" }
+
 rdif-base = { version = "0.2", features = [
     "alloc",
-], path = "../interface/rdif-base" }
-rdif-intc = { version = "0.4", path = "../interface/rdif-intc" }
-rdif-timer = { version = "0.2", path = "../interface/rdif-timer" }
-rdif-power = { version = "0.2", path = "../interface/rdif-power" }
+]}
+rdif-intc = { version = "0.4" }
+rdif-timer = { version = "0.2" }
+rdif-power = { version = "0.2" }
