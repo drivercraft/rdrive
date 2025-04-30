@@ -5,34 +5,35 @@ extern crate alloc;
 pub use alloc::{boxed::Box, vec::Vec};
 use core::error::Error;
 
+use cfg_if::cfg_if;
 use rdif_base::custom_type;
 pub use rdif_base::{DriverGeneric, DriverResult, IrqConfig, IrqId, Trigger};
 
 custom_type!(CpuId, usize, "{:#x}");
 
 pub type Hardware = Box<dyn Interface>;
+pub type HardwareCPU = Box<dyn InterfaceCPU>;
 
 /// Fdt 解析 `interrupts` 函数，一次解析一个`cell`
 pub type FuncFdtParseConfig =
     fn(prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>>;
 
-/// 在中断中调用，不会被打断，视为`Sync`
-pub trait InterfaceCPUNormal: Send + Sync {
-    fn ack(&self) -> Option<IrqId>;
-    fn eoi(&self, irq: IrqId);
-}
-
-pub trait InterfaceCPUEoiTwoStep: Send + Sync {
-    fn ack(&self) -> Option<IrqId>;
-    /// 降级优先级，允许中断被抢占
-    fn priority_drop(&self, intid: IrqId);
-    /// 中断处理完成，可继续触发中断
-    fn deactivation(&self, intid: IrqId);
-}
-
-pub enum HardwareCPU {
-    Normal(Box<dyn InterfaceCPUNormal>),
-    EoiTwoStep(Box<dyn InterfaceCPUEoiTwoStep>),
+cfg_if! {
+    if #[cfg(target_arch = "aarch64")]{
+        pub trait InterfaceCPU: Send + Sync {
+            fn set_eoi_model(&self, b: bool);
+            fn get_eoi_model(&self) -> bool;
+            fn ack(&self) -> Option<IrqId>;
+            fn eoi(&self, intid: IrqId);
+            fn dir(&self, intid: IrqId);
+        }
+    }else{
+        /// 在中断中调用，不会被打断，视为`Sync`
+        pub trait InterfaceCPU: Send + Sync {
+            fn ack(&self) -> Option<IrqId>;
+            fn eoi(&self, irq: IrqId);
+        }
+    }
 }
 
 pub trait Interface: DriverGeneric {
