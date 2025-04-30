@@ -1,5 +1,4 @@
 use alloc::vec::Vec;
-use log::debug;
 
 use crate::{
     Device, DriverInfoKind, DriverRegister,
