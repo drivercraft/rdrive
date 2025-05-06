@@ -156,7 +156,7 @@ impl ProbeFunc {
                             on_probe,
                         } => {
                             for campatible in &node_compatibles {
-                                if compatibles.contains(campatible) {
+                                if (*compatibles).contains(campatible) {
                                     vec.push(ProbeFdtInfo {
                                         name: register.name,
                                         node: node.clone(),

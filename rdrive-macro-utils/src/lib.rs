@@ -48,12 +48,11 @@ pub fn module_driver_with_linker(
     let path_probe_kind = format!("{}::register::ProbeKind", use_prefix.trim_end_matches("::"));
     let type_probe_kind: syn::Path = parse_str(&path_probe_kind).expect("Failed to parse path");
 
-
     let section = link_section.unwrap_or(".driver.register");
 
     quote! {
 
-        mod #mod_name{
+        pub mod #mod_name{
             use super::*;
             use #type_driver_kind;
             use #type_probe_kind;
