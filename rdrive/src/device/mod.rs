@@ -1,4 +1,3 @@
-use core::any::{Any, TypeId};
 use core::ops::{Deref, DerefMut};
 
 pub use descriptor::Descriptor;
