@@ -1,25 +1,49 @@
-use core::ptr::NonNull;
+use alloc::{boxed::Box, format, string::String, vec::Vec};
+use core::{error::Error, ptr::NonNull};
 
-use crate::{Descriptor, DriverInfoKind};
+use fdt_parser::FdtError;
 
-pub(crate) mod fdt;
+use crate::{Descriptor, DeviceId, DriverInfoKind, intc::IrqConfig};
 
-pub enum ProbeData {
-    Fdt(fdt::ProbeData),
+pub mod fdt;
+
+#[derive(thiserror::Error, Debug)]
+pub enum ProbeError {
+    #[error("probe `{name}` fail: irq chip not init")]
+    IrqNotInit { name: String },
+    #[error("fdt parse error: {0}")]
+    Fdt(String),
+    #[error("on probe error: {0}")]
+    OnProbe(Box<dyn Error>),
 }
 
-impl Default for ProbeData {
-    fn default() -> Self {
-        Self::Fdt(fdt::ProbeData::new(NonNull::dangling()))
+impl From<FdtError<'_>> for ProbeError {
+    fn from(value: FdtError) -> Self {
+        Self::Fdt(format!("{value:?}"))
     }
 }
 
-impl From<DriverInfoKind> for ProbeData {
+pub enum EnumSystem {
+    Fdt(fdt::ProbeFunc),
+}
+
+impl Default for EnumSystem {
+    fn default() -> Self {
+        Self::Fdt(fdt::ProbeFunc::new(NonNull::dangling()))
+    }
+}
+
+impl From<DriverInfoKind> for EnumSystem {
     fn from(value: DriverInfoKind) -> Self {
         match value {
-            DriverInfoKind::Fdt { addr } => ProbeData::Fdt(fdt::ProbeData::new(addr)),
+            DriverInfoKind::Fdt { addr } => EnumSystem::Fdt(fdt::ProbeFunc::new(addr)),
         }
     }
+}
+
+pub struct ProbeDevInfo {
+    pub irqs: Vec<IrqConfig>,
+    pub irq_parent: Option<DeviceId>,
 }
 
 pub enum HardwareKind {

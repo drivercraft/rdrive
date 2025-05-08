@@ -1,7 +1,6 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::ops::Deref;
 
-use crate::intc::IrqConfig;
 use crate::probe::fdt;
 pub use fdt_parser::Node;
 
@@ -30,11 +29,6 @@ pub enum ProbeKind {
     },
 }
 
-pub struct FdtInfo<'a> {
-    pub node: Node<'a>,
-    pub irqs: Vec<IrqConfig>,
-}
-
 #[repr(C)]
 pub struct DriverRegisterSlice {
     data: *const u8,
@@ -50,8 +44,17 @@ impl DriverRegisterSlice {
     }
 
     pub fn as_slice(&self) -> &[DriverRegister] {
+        if self.len == 0 {
+            return &[];
+        }
         unsafe {
             core::slice::from_raw_parts(self.data as _, self.len / size_of::<DriverRegister>())
+        }
+    }
+    pub fn empty() -> Self {
+        Self {
+            data: core::ptr::null(),
+            len: 0,
         }
     }
 }

@@ -4,7 +4,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use core::ptr::NonNull;
-use error::DriverError;
 pub use fdt_parser::Phandle;
 pub use register::DriverKind;
 
@@ -18,6 +17,7 @@ pub mod probe;
 pub mod register;
 pub use device::*;
 pub use manager::*;
+pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, DriverResult, IrqId, io};
 pub use register::{DriverRegister, DriverRegisterSlice};
 
@@ -58,11 +58,11 @@ pub fn register_append(registers: &[DriverRegister]) {
     edit(|manager| manager.registers.append(registers))
 }
 
-pub fn probe() -> Result<(), DriverError> {
+pub fn probe() -> Result<(), ProbeError> {
     edit(|manager| manager.probe())
 }
 
-pub fn probe_with_kind(kind: DriverKind) -> Result<(), DriverError> {
+pub fn probe_with_kind(kind: DriverKind) -> Result<(), ProbeError> {
     edit(|manager| manager.probe_with_kind(kind))
 }
 

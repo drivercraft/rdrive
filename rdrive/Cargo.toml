@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.4.0"
+version = "0.5.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -10,11 +10,20 @@ keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
 [dependencies]
-spin = "0.9"
+spin = "0.10"
 fdt-parser = "0.4"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
-rdif-base = { version = "0.2", features = ["alloc"] }
-rdif-intc = "0.3"
-rdif-timer = "0.2"
-rdif-power = "0.2"
+# rdif-base = { version = "0.2", features = [
+#     "alloc",
+# ], path = "../interface/rdif-base" }
+# rdif-intc = { version = "0.4", path = "../interface/rdif-intc" }
+# rdif-timer = { version = "0.2", path = "../interface/rdif-timer" }
+# rdif-power = { version = "0.2", path = "../interface/rdif-power" }
+
+rdif-base = { version = "0.2", features = [
+    "alloc",
+]}
+rdif-intc = { version = "0.4" }
+rdif-timer = { version = "0.2" }
+rdif-power = { version = "0.2" }

@@ -2,11 +2,9 @@ use alloc::vec::Vec;
 
 use crate::{
     Device, DriverInfoKind, DriverRegister,
-    probe::{HardwareKind, ProbeData},
+    probe::{EnumSystem, HardwareKind, ProbeError},
     register::{DriverKind, RegisterContainer},
 };
-
-use crate::error::DriverError;
 
 use super::device;
 
@@ -16,18 +14,18 @@ pub struct Manager {
     pub intc: device::intc::Container,
     pub timer: device::timer::Container,
     pub power: device::Container<rdif_power::Hardware>,
-    pub probe_kind: ProbeData,
+    pub enum_system: EnumSystem,
 }
 
 impl Manager {
     pub fn new(driver_info_kind: DriverInfoKind) -> Self {
         Self {
-            probe_kind: driver_info_kind.into(),
+            enum_system: driver_info_kind.into(),
             ..Default::default()
         }
     }
 
-    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), DriverError> {
+    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), ProbeError> {
         let ls = self
             .registers
             .unregistered()
@@ -38,15 +36,15 @@ impl Manager {
         self.probe_with(&ls)
     }
 
-    pub fn probe(&mut self) -> Result<(), DriverError> {
+    pub fn probe(&mut self) -> Result<(), ProbeError> {
         let ls = self.registers.unregistered();
 
         self.probe_with(&ls)
     }
 
-    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), DriverError> {
-        let probed_list = match &mut self.probe_kind {
-            ProbeData::Fdt(probe_data) => probe_data.probe(registers)?,
+    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), ProbeError> {
+        let probed_list = match &mut self.enum_system {
+            EnumSystem::Fdt(probe_data) => probe_data.probe(registers)?,
         };
 
         for probed in probed_list {
