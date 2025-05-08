@@ -78,7 +78,30 @@ macro_rules! dev_list {
                         None
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<alloc::vec::Vec<_>>()
+        })
+    };
+}
+#[macro_export]
+macro_rules! get_dev {
+    ($k:ident) => {
+        $crate::read(|m| {
+            let dev = m.dev_map.values().next()?;
+            if let $crate::DeviceKind::$k(dev) = dev {
+                Some(dev.weak())
+            } else {
+                None
+            }
+        })
+    };
+    ($id:expr, $k:ident) => {
+        $crate::read(|m| {
+            let dev = m.dev_map.get(&$id)?;
+            if let $crate::DeviceKind::$k(dev) = dev {
+                Some(dev.weak())
+            } else {
+                None
+            }
         })
     };
 }

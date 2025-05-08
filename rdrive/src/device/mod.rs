@@ -122,13 +122,19 @@ impl<T> DeviceWeak<T> {
         })
     }
 
-    pub fn spin_try_borrow_by(&self, pid: PId) -> DeviceGuard<T> {
+    pub fn spin_try_borrow_by(&self, pid: PId) -> Result<DeviceGuard<T>, DeviceError> {
         loop {
             match self.try_borrow_by(pid) {
                 Ok(g) => {
-                    return g;
+                    return Ok(g);
                 }
-                Err(_) => continue,
+                Err(e) => {
+                    if let DeviceError::UsedByOthers(_) = e {
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
             }
         }
     }
