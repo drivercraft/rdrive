@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use core::any::{Any, TypeId};
 use core::ops::{Deref, DerefMut};
 
 pub use descriptor::Descriptor;
@@ -11,12 +11,43 @@ pub mod intc;
 pub mod power;
 pub mod timer;
 
+macro_rules! define_kind {
+    ($( $en:ident, $t:path; )*) => {
+        pub enum HardwareKind {
+            $(
+                $en($t),
+            )*
+        }
+
+        impl HardwareKind{
+            pub fn to_device(self, desc: Descriptor)->DeviceKind{
+                match self{
+                    $(
+                        Self::$en(d)=> DeviceKind::$en( Device::new(desc,d)),
+                    )*
+                }
+            }
+        }
+        pub enum DeviceKind {
+            $(
+                $en(Device<$t>),
+            )*
+        }
+    };
+}
+
+define_kind!(
+    Intc, rdif_intc::Hardware;
+    Timer, rdif_timer::Hardware;
+    Power, rdif_power::Hardware;
+);
+
 pub struct Device<T> {
     pub descriptor: Descriptor,
     driver: Lock<T>,
 }
 
-impl<T> Device<T> {
+impl<T: 'static> Device<T> {
     pub fn new(descriptor: Descriptor, driver: T) -> Self {
         Self {
             descriptor,
@@ -24,7 +55,7 @@ impl<T> Device<T> {
         }
     }
 
-    pub fn try_borrow_by(&self, pid: PId) -> Result<DeviceGuard<T>, LockError> {
+    pub fn try_borrow_by(&self, pid: PId) -> Result<DeviceGuard<T>, DeviceError> {
         let g = self.driver.try_borrow(pid)?;
         Ok(DeviceGuard {
             descriptor: self.descriptor.clone(),
@@ -79,6 +110,26 @@ impl<T> DeviceWeak<T> {
             driver: d,
         })
     }
+
+    pub fn try_borrow_by(&self, pid: PId) -> Result<DeviceGuard<T>, DeviceError> {
+        let one = self.upgrade().ok_or(DeviceError::Droped)?;
+        let g = one.driver.try_borrow(pid)?;
+        Ok(DeviceGuard {
+            descriptor: one.descriptor.clone(),
+            lock: g,
+        })
+    }
+
+    pub fn spin_try_borrow_by(&self, pid: PId) -> DeviceGuard<T> {
+        loop {
+            match self.try_borrow_by(pid) {
+                Ok(g) => {
+                    return g;
+                }
+                Err(_) => continue,
+            }
+        }
+    }
 }
 
 pub struct DeviceGuard<T> {
@@ -100,34 +151,18 @@ impl<T> DerefMut for DeviceGuard<T> {
     }
 }
 
-pub struct Container<T> {
-    data: BTreeMap<DeviceId, Device<T>>,
+#[derive(thiserror::Error, Debug, Clone, Copy)]
+pub enum DeviceError {
+    #[error("used by pid: {0:?}")]
+    UsedByOthers(PId),
+    #[error("droped")]
+    Droped,
 }
 
-impl<T> Container<T> {
-    pub const fn new() -> Self {
-        Self {
-            data: BTreeMap::new(),
-        }
-    }
-
-    pub fn insert(&mut self, dev: Device<T>) {
-        self.data.insert(dev.descriptor.device_id, dev);
-    }
-
-    pub fn get(&self, id: DeviceId) -> Option<DeviceWeak<T>> {
-        self.data.get(&id).map(|o| o.weak())
-    }
-
-    pub fn all(&self) -> Vec<(DeviceId, DeviceWeak<T>)> {
-        self.data.iter().map(|(i, o)| (*i, o.weak())).collect()
-    }
-}
-
-impl<T> Default for Container<T> {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
+impl From<LockError> for DeviceError {
+    fn from(value: LockError) -> Self {
+        match value {
+            LockError::UsedByOthers(pid) => Self::UsedByOthers(pid),
         }
     }
 }

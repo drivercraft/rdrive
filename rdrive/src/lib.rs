@@ -2,10 +2,8 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
-pub use register::DriverKind;
 
 use spin::Mutex;
 
@@ -58,18 +56,29 @@ pub fn register_append(registers: &[DriverRegister]) {
     edit(|manager| manager.registers.append(registers))
 }
 
+pub fn probe_pre_kernel() -> Result<(), ProbeError> {
+    edit(|manager| manager.probe_pre_kernel())
+}
+
 pub fn probe() -> Result<(), ProbeError> {
     edit(|manager| manager.probe())
 }
 
-pub fn probe_with_kind(kind: DriverKind) -> Result<(), ProbeError> {
-    edit(|manager| manager.probe_with_kind(kind))
-}
-
-pub fn intc_all() -> Vec<(DeviceId, device::intc::Weak)> {
-    read(|manager| manager.intc.all())
-}
-
-pub fn intc_get(id: DeviceId) -> Option<device::intc::Weak> {
-    read(|manager| manager.intc.get(id))
+#[macro_export]
+macro_rules! dev_list {
+    ($k: ident) => {
+        $crate::read(|manager| {
+            manager
+                .dev_map
+                .iter()
+                .filter_map(|(_, v)| {
+                    if let $crate::DeviceKind::$k(dev) = v {
+                        Some(dev.weak())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+    };
 }

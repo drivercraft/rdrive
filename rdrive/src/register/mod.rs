@@ -1,26 +1,51 @@
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::ops::Deref;
 
 use crate::probe::fdt;
 pub use fdt_parser::Node;
 
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct ProbePriority(pub usize);
+
+impl ProbePriority {
+    pub const INTC: ProbePriority = ProbePriority(2);
+}
+
+impl Default for ProbePriority {
+    fn default() -> Self {
+        Self(256)
+    }
+}
+
+impl From<usize> for ProbePriority {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ProbeLevel {
+    PreKernel,
+    PostKernel,
+}
+
+impl Default for ProbeLevel {
+    fn default() -> Self {
+        Self::PostKernel
+    }
+}
+
 #[derive(Clone)]
 pub struct DriverRegister {
     pub name: &'static str,
-    pub kind: DriverKind,
+    pub level: ProbeLevel,
+    pub priority: ProbePriority,
     pub probe_kinds: &'static [ProbeKind],
 }
 
 unsafe impl Send for DriverRegister {}
 unsafe impl Sync for DriverRegister {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DriverKind {
-    Intc,
-    Timer,
-    Power,
-    Other,
-}
 
 pub enum ProbeKind {
     Fdt {
@@ -67,38 +92,58 @@ impl Deref for DriverRegisterSlice {
     }
 }
 
+struct RegisterElem {
+    pub register: DriverRegister,
+    pub probed: bool,
+}
+
 #[derive(Default)]
 pub struct RegisterContainer {
-    registers: Vec<DriverRegister>,
-    probed_index: BTreeSet<usize>,
+    id_iter: usize,
+    registers: BTreeMap<usize, RegisterElem>,
 }
 
 impl RegisterContainer {
     pub const fn new() -> Self {
         Self {
-            registers: Vec::new(),
-            probed_index: BTreeSet::new(),
+            registers: BTreeMap::new(),
+            id_iter: 0,
         }
     }
 
     pub fn add(&mut self, register: DriverRegister) {
-        self.registers.push(register);
+        self.id_iter += 1;
+        self.registers.insert(
+            self.id_iter,
+            RegisterElem {
+                register,
+                probed: false,
+            },
+        );
     }
 
     pub fn append(&mut self, register: &[DriverRegister]) {
-        self.registers.extend_from_slice(register);
+        for one in register {
+            self.add(one.clone());
+        }
     }
 
     pub fn set_probed(&mut self, register_idx: usize) {
-        self.probed_index.insert(register_idx);
+        if let Some(elem) = self.registers.get_mut(&register_idx) {
+            elem.probed = true;
+        }
     }
 
     pub fn unregistered(&self) -> Vec<(usize, DriverRegister)> {
         self.registers
             .iter()
-            .enumerate()
-            .filter(|(i, _)| !self.probed_index.contains(i))
-            .map(|(i, r)| (i, r.clone()))
+            .filter_map(|(id, r)| {
+                if r.probed {
+                    None
+                } else {
+                    Some((*id, r.register.clone()))
+                }
+            })
             .collect()
     }
 }
