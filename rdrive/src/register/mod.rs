@@ -10,12 +10,7 @@ pub struct ProbePriority(pub usize);
 
 impl ProbePriority {
     pub const INTC: ProbePriority = ProbePriority(2);
-}
-
-impl Default for ProbePriority {
-    fn default() -> Self {
-        Self(256)
-    }
+    pub const DEFAULT: ProbePriority = ProbePriority(256);
 }
 
 impl From<usize> for ProbePriority {
@@ -30,8 +25,8 @@ pub enum ProbeLevel {
     PostKernel,
 }
 
-impl Default for ProbeLevel {
-    fn default() -> Self {
+impl ProbeLevel {
+    pub const fn new() -> Self {
         Self::PostKernel
     }
 }
