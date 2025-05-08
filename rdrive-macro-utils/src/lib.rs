@@ -42,19 +42,26 @@ pub fn module_driver_with_linker(
     let path_str = format!("{}::DriverRegister", use_prefix.trim_end_matches("::"));
     let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
 
-    let path_driver_kind = format!("{}::DriverKind", use_prefix.trim_end_matches("::"));
-    let type_driver_kind: syn::Path = parse_str(&path_driver_kind).expect("Failed to parse path");
+    let path_register = format!("{}::register", use_prefix.trim_end_matches("::"));
 
-    let path_probe_kind = format!("{}::register::ProbeKind", use_prefix.trim_end_matches("::"));
+    let path_probe_level = format!("{}::ProbeLevel", &path_register);
+    let type_probe_level: syn::Path = parse_str(&path_probe_level).expect("Failed to parse path");
+
+    let path_probe_priority = format!("{}::ProbePriority", &path_register);
+    let type_probe_priority: syn::Path =
+        parse_str(&path_probe_priority).expect("Failed to parse path");
+
+    let path_probe_kind = format!("{}::ProbeKind", &path_register);
     let type_probe_kind: syn::Path = parse_str(&path_probe_kind).expect("Failed to parse path");
 
     let section = link_section.unwrap_or(".driver.register");
 
     quote! {
-
+        #[allow(unused)]
         pub mod #mod_name{
             use super::*;
-            use #type_driver_kind;
+            use #type_probe_level;
+            use #type_probe_priority;
             use #type_probe_kind;
 
             #[unsafe(link_section = #section)]

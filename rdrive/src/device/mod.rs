@@ -35,10 +35,13 @@ macro_rules! define_kind {
     };
 }
 
+pub struct Empty;
+
 define_kind!(
     Intc, rdif_intc::Hardware;
     Timer, rdif_timer::Hardware;
     Power, rdif_power::Hardware;
+    SysInit, Empty;
 );
 
 pub struct Device<T> {
