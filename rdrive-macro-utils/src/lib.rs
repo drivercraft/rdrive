@@ -39,10 +39,10 @@ pub fn module_driver_with_linker(
     let mod_name = format_ident!("__{}", st_name.to_lowercase());
 
     // 解析路径
-    let path_str = format!("{}::DriverRegister", use_prefix.trim_end_matches("::"));
-    let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
-
     let path_register = format!("{}::register", use_prefix.trim_end_matches("::"));
+
+    let path_str = format!("{}::DriverRegister", &path_register);
+    let type_register: syn::Path = parse_str(&path_str).expect("Failed to parse path");
 
     let path_probe_level = format!("{}::ProbeLevel", &path_register);
     let type_probe_level: syn::Path = parse_str(&path_probe_level).expect("Failed to parse path");

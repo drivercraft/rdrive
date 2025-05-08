@@ -5,6 +5,7 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
+use register::DriverRegister;
 use spin::Mutex;
 
 mod device;
