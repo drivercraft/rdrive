@@ -24,6 +24,6 @@ log = "0.4"
 rdif-base = { version = "0.2", features = [
     "alloc",
 ]}
-rdif-intc = { version = "0.4" }
+rdif-intc = { version = "0.5" }
 rdif-timer = { version = "0.2" }
 rdif-power = { version = "0.2" }
