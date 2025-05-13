@@ -86,12 +86,17 @@ macro_rules! dev_list {
 macro_rules! get_dev {
     ($k:ident) => {
         $crate::read(|m| {
-            let dev = m.dev_map.values().next()?;
-            if let $crate::DeviceKind::$k(dev) = dev {
-                Some(dev.weak())
-            } else {
-                None
-            }
+            manager
+                .dev_map
+                .iter()
+                .filter_map(|(_, v)| {
+                    if let $crate::DeviceKind::$k(dev) = v {
+                        Some(dev.weak())
+                    } else {
+                        None
+                    }
+                })
+                .next()
         })
     };
     ($id:expr, $k:ident) => {
