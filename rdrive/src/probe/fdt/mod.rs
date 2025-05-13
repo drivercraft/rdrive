@@ -8,7 +8,10 @@ use fdt_parser::{Fdt, Phandle, Status};
 use rdif_base::IrqConfig;
 pub use rdif_intc::FuncFdtParseConfig;
 
-use crate::{Descriptor, DeviceId, DriverRegister, HardwareKind, register::ProbeKind};
+use crate::{
+    Descriptor, DeviceId, DriverRegister, HardwareKind,
+    register::{ProbeKind, ProbePriority},
+};
 
 use super::{ProbeError, ProbedDevice};
 
@@ -55,13 +58,14 @@ impl ProbeFunc {
 
         let registers = self.get_all_fdt_registers(registers, &fdt);
 
-        self.probe_with(&registers)
+        self.probe_with(registers)
     }
 
     fn probe_with(
         &mut self,
-        registers: &[ProbeFdtInfo<'_>],
+        mut registers: Vec<ProbeFdtInfo<'_>>,
     ) -> Result<Vec<ProbedDevice>, ProbeError> {
+        registers.sort_by(|a, b| a.priority.cmp(&b.priority));
         let mut out = Vec::new();
 
         for register in registers {
@@ -155,6 +159,7 @@ impl ProbeFunc {
                                         node: node.clone(),
                                         on_probe,
                                         register_index: *i,
+                                        priority: register.priority,
                                     });
                                     break;
                                 }
@@ -173,4 +178,5 @@ pub struct ProbeFdtInfo<'a> {
     pub node: Node<'a>,
     pub on_probe: FnOnProbe,
     register_index: usize,
+    pub priority: ProbePriority,
 }
