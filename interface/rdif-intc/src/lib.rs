@@ -21,6 +21,7 @@ pub type FuncFdtParseConfig =
 cfg_if! {
     if #[cfg(target_arch = "aarch64")]{
         pub trait InterfaceCPU: Send + Sync {
+            fn setup(&self);
             fn set_eoi_mode(&self, b: bool);
             fn get_eoi_mode(&self) -> bool;
             fn ack(&self) -> Option<IrqId>;
@@ -30,6 +31,7 @@ cfg_if! {
     }else{
         /// 在中断中调用，不会被打断，视为`Sync`
         pub trait InterfaceCPU: Send + Sync {
+            fn setup(&self);
             fn ack(&self) -> Option<IrqId>;
             fn eoi(&self, irq: IrqId);
         }

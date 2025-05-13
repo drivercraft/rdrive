@@ -1,19 +1,15 @@
-use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 use crate::{
-    Device, DriverInfoKind, DriverRegister,
-    probe::{EnumSystem, HardwareKind, ProbeError},
-    register::{DriverKind, RegisterContainer},
+    DeviceId, DeviceKind, DriverInfoKind, DriverRegister,
+    probe::{EnumSystem, ProbeError},
+    register::{ProbeLevel, RegisterContainer},
 };
-
-use super::device;
 
 #[derive(Default)]
 pub struct Manager {
     pub registers: RegisterContainer,
-    pub intc: device::intc::Container,
-    pub timer: device::timer::Container,
-    pub power: device::Container<rdif_power::Hardware>,
+    pub dev_map: BTreeMap<DeviceId, DeviceKind>,
     pub enum_system: EnumSystem,
 }
 
@@ -25,12 +21,12 @@ impl Manager {
         }
     }
 
-    pub fn probe_with_kind(&mut self, kind: DriverKind) -> Result<(), ProbeError> {
+    pub fn probe_pre_kernel(&mut self) -> Result<(), ProbeError> {
         let ls = self
             .registers
             .unregistered()
             .into_iter()
-            .filter(|(_, e)| e.kind == kind)
+            .filter(|(_, e)| matches!(e.level, ProbeLevel::PreKernel))
             .collect::<Vec<_>>();
 
         self.probe_with(&ls)
@@ -43,23 +39,16 @@ impl Manager {
     }
 
     fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), ProbeError> {
+        let mut sorted = registers.to_vec();
+        sorted.sort_by(|a, b| a.1.priority.cmp(&b.1.priority));
+
         let probed_list = match &mut self.enum_system {
-            EnumSystem::Fdt(probe_data) => probe_data.probe(registers)?,
+            EnumSystem::Fdt(probe_data) => probe_data.probe(&sorted)?,
         };
 
         for probed in probed_list {
             self.registers.set_probed(probed.register_id);
-            match probed.dev {
-                HardwareKind::Intc(interface) => {
-                    self.intc.insert(Device::new(probed.descriptor, interface));
-                }
-                HardwareKind::Timer(interface) => {
-                    self.timer.insert(Device::new(probed.descriptor, interface));
-                }
-                HardwareKind::Power(interface) => {
-                    self.power.insert(Device::new(probed.descriptor, interface));
-                }
-            }
+            self.dev_map.insert(probed.descriptor.device_id, probed.dev);
         }
 
         Ok(())

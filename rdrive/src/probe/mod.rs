@@ -1,9 +1,9 @@
-use alloc::{boxed::Box, format, string::String, vec::Vec};
+use alloc::{boxed::Box, format, string::String};
 use core::{error::Error, ptr::NonNull};
 
 use fdt_parser::FdtError;
 
-use crate::{Descriptor, DeviceId, DriverInfoKind, intc::IrqConfig};
+use crate::{Descriptor, DeviceKind, DriverInfoKind};
 
 pub mod fdt;
 
@@ -41,19 +41,8 @@ impl From<DriverInfoKind> for EnumSystem {
     }
 }
 
-pub struct ProbeDevInfo {
-    pub irqs: Vec<IrqConfig>,
-    pub irq_parent: Option<DeviceId>,
-}
-
-pub enum HardwareKind {
-    Intc(rdif_intc::Hardware),
-    Timer(rdif_timer::Hardware),
-    Power(rdif_power::Hardware),
-}
-
 pub struct ProbedDevice {
     pub register_id: usize,
     pub descriptor: Descriptor,
-    pub dev: HardwareKind,
+    pub dev: DeviceKind,
 }
