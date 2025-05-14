@@ -171,6 +171,7 @@ impl From<LockError> for DeviceError {
     fn from(value: LockError) -> Self {
         match value {
             LockError::UsedByOthers(pid) => Self::UsedByOthers(pid),
+            LockError::DeviceReleased => Self::Droped,
         }
     }
 }
