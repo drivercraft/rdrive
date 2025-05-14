@@ -13,18 +13,18 @@ custom_type!(CpuId, usize, "{:#x}");
 
 pub type Hardware = Box<dyn Interface>;
 pub type BoxCPU = Box<dyn InterfaceCPU>;
-pub type BoxCPUIrqLocal = Box<dyn InterfaceCPUIrqLocal>;
+pub type BoxCPUIrqCtrl = Box<dyn InterfaceCPUIrqCtrl>;
 
 pub enum CpuLocal {
-    IrqLocal(BoxCPUIrqLocal),
-    IrqGlobal(BoxCPU),
+    IrqCtrl(BoxCPUIrqCtrl),
+    Base(BoxCPU),
 }
 
 /// Fdt 解析 `interrupts` 函数，一次解析一个`cell`
 pub type FuncFdtParseConfig =
     fn(prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>>;
 
-pub trait InterfaceCPUIrqLocal: InterfaceCPU {
+pub trait InterfaceCPUIrqCtrl: InterfaceCPU {
     fn irq_enable(&self, irq: IrqId) -> Result<(), IntcError>;
     fn irq_disable(&self, irq: IrqId) -> Result<(), IntcError>;
     fn set_priority(&self, irq: IrqId, priority: usize) -> Result<(), IntcError>;
