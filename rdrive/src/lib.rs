@@ -68,6 +68,8 @@ pub fn probe() -> Result<(), ProbeError> {
 macro_rules! dev_list {
     ($k: ident) => {
         $crate::read(|manager| {
+            extern crate alloc;
+
             manager
                 .dev_map
                 .iter()

@@ -4,7 +4,7 @@ use log::debug;
 use rdrive::{
     Descriptor, DriverResult, HardwareKind,
     intc::{IrqConfig, IrqId},
-    register::{Node, ProbeKind, ProbeLevel, ProbePriority},
+    register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     rdrive::init(rdrive::DriverInfoKind::Fdt {
         addr: NonNull::new(fdt.as_ptr() as usize as _).unwrap(),
     });
-    let register = rdrive::DriverRegister {
+    let register = DriverRegister {
         name: "IrqText",
         probe_kinds: &[ProbeKind::Fdt {
             compatibles: &["arm,cortex-a15-gic"],

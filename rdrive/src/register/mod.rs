@@ -31,6 +31,12 @@ impl ProbeLevel {
     }
 }
 
+impl Default for ProbeLevel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone)]
 pub struct DriverRegister {
     pub name: &'static str,
