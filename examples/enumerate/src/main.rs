@@ -52,40 +52,41 @@ impl rdrive::intc::DriverGeneric for IrqTest {
 }
 
 impl rdrive::intc::Interface for IrqTest {
-    fn irq_enable(&mut self, _irq: IrqId) {
+    fn cpu_interface(&self) -> rdrive::intc::CpuLocal {
         todo!()
     }
 
-    fn irq_disable(&mut self, _irq: IrqId) {
+    fn irq_enable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
 
-    fn set_priority(&mut self, _irq: IrqId, _priority: usize) {
+    fn irq_disable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
 
-    fn set_trigger(&mut self, _irq: IrqId, _trigger: rdrive::intc::Trigger) {
+    fn set_priority(
+        &mut self,
+        _irq: IrqId,
+        _priority: usize,
+    ) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
 
-    fn set_target_cpu(&mut self, _irq: IrqId, _cpu: rdrive::intc::CpuId) {
+    fn set_trigger(
+        &mut self,
+        _irq: IrqId,
+        _trigger: rdrive::intc::Trigger,
+    ) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
 
-    fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
-        vec![rdrive::intc::Capability::FdtParseConfig(parser)]
-    }
-
-    fn cpu_interface(&self) -> rdrive::intc::HardwareCPU {
+    fn set_target_cpu(
+        &mut self,
+        _irq: IrqId,
+        _cpu: rdrive::intc::CpuId,
+    ) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
-}
-
-fn parser(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>> {
-    Ok(IrqConfig {
-        irq: 0.into(),
-        trigger: rdrive::intc::Trigger::EdgeBoth,
-    })
 }
 
 fn probe_intc(node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
