@@ -12,11 +12,24 @@ pub use rdif_base::{DriverGeneric, DriverResult, IrqConfig, IrqId, Trigger};
 custom_type!(CpuId, usize, "{:#x}");
 
 pub type Hardware = Box<dyn Interface>;
-pub type HardwareCPU = Box<dyn InterfaceCPU>;
+pub type BoxCPU = Box<dyn InterfaceCPU>;
+pub type BoxCPUIrqLocal = Box<dyn InterfaceCPUIrqLocal>;
+
+pub enum CpuLocal {
+    IrqLocal(BoxCPUIrqLocal),
+    IrqGlobal(BoxCPU),
+}
 
 /// Fdt 解析 `interrupts` 函数，一次解析一个`cell`
 pub type FuncFdtParseConfig =
     fn(prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>>;
+
+pub trait InterfaceCPUIrqLocal: InterfaceCPU {
+    fn irq_enable(&self, irq: IrqId) -> Result<(), IntcError>;
+    fn irq_disable(&self, irq: IrqId) -> Result<(), IntcError>;
+    fn set_priority(&self, irq: IrqId, priority: usize) -> Result<(), IntcError>;
+    fn set_trigger(&self, irq: IrqId, trigger: Trigger) -> Result<(), IntcError>;
+}
 
 pub trait InterfaceCPU: Send + Sync {
     fn setup(&self);
@@ -30,15 +43,10 @@ pub trait InterfaceCPU: Send + Sync {
             fn get_eoi_mode(&self) -> bool;
         }
     }
-
-    fn irq_enable(&self, irq: IrqId) -> Result<(), IntcError>;
-    fn irq_disable(&self, irq: IrqId) -> Result<(), IntcError>;
-    fn set_priority(&self, irq: IrqId, priority: usize) -> Result<(), IntcError>;
-    fn set_trigger(&self, irq: IrqId, trigger: Trigger) -> Result<(), IntcError>;
 }
 
 pub trait Interface: DriverGeneric {
-    fn cpu_interface(&self) -> HardwareCPU;
+    fn cpu_interface(&self) -> CpuLocal;
 
     fn irq_enable(&mut self, irq: IrqId) -> Result<(), IntcError>;
     fn irq_disable(&mut self, irq: IrqId) -> Result<(), IntcError>;
