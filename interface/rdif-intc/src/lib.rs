@@ -57,7 +57,7 @@ pub enum Capability {
 #[derive(Debug, Clone, Copy)]
 pub enum IntcError {
     IrqIdNotCompatible { id: IrqId },
-    NotImplemented,
+    NotSupport,
 }
 impl Display for IntcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
