@@ -87,6 +87,17 @@ impl rdrive::intc::Interface for IrqTest {
     ) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
+
+    fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
+        vec![rdrive::intc::Capability::FdtParseConfig(fdt_parse)]
+    }
+}
+
+fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>> {
+    Ok(IrqConfig {
+        irq: 0.into(),
+        trigger: rdrive::intc::Trigger::EdgeBoth,
+    })
 }
 
 fn probe_intc(node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {

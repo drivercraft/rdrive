@@ -2,7 +2,7 @@ use alloc::sync::{Arc, Weak};
 use core::{
     cell::UnsafeCell,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicI64, Ordering},
 };
 
 use crate::custom_type;
@@ -11,38 +11,22 @@ custom_type!(PId, usize, "{:?}");
 
 pub enum LockError {
     UsedByOthers(PId),
+    DeviceReleased,
 }
 
 pub struct Lock<T> {
-    data: Arc<LockData<T>>,
+    data: Arc<LockInner<T>>,
 }
 
 impl<T> Lock<T> {
     pub fn new(data: T) -> Self {
         Lock {
-            data: Arc::new(LockData::new(data)),
+            data: Arc::new(LockInner::new(data)),
         }
     }
 
     pub fn try_borrow(&self, pid: PId) -> Result<LockGuard<T>, LockError> {
-        match self
-            .data
-            .borrowed
-            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-        {
-            Ok(_) => {
-                unsafe {
-                    (*self.data.used.get()).replace(pid);
-                }
-                Ok(LockGuard {
-                    data: self.data.clone(),
-                })
-            }
-            Err(_) => {
-                let pid = unsafe { *self.data.used.get() };
-                Err(LockError::UsedByOthers(pid.unwrap()))
-            }
-        }
+        self.data.try_borrow(pid)
     }
 
     pub fn weak(&self) -> LockWeak<T> {
@@ -69,44 +53,60 @@ impl<T: Sync + Send> Deref for Lock<T> {
 }
 
 pub struct LockWeak<T> {
-    data: Weak<LockData<T>>,
+    data: Weak<LockInner<T>>,
 }
 
 impl<T> LockWeak<T> {
     pub fn upgrade(&self) -> Option<Lock<T>> {
         self.data.upgrade().map(|data| Lock { data })
     }
+
+    pub fn try_borrow(&self, pid: PId) -> Result<LockGuard<T>, LockError> {
+        self.upgrade()
+            .ok_or(LockError::DeviceReleased)?
+            .try_borrow(pid)
+    }
 }
 
-struct LockData<T> {
-    borrowed: AtomicBool,
-    used: UnsafeCell<Option<PId>>,
+struct LockInner<T> {
+    borrowed: AtomicI64,
     data: UnsafeCell<T>,
 }
 
-unsafe impl<T: Send> Send for LockData<T> {}
-unsafe impl<T: Send> Sync for LockData<T> {}
+unsafe impl<T: Send> Send for LockInner<T> {}
+unsafe impl<T: Send> Sync for LockInner<T> {}
 
-impl<T> LockData<T> {
+impl<T> LockInner<T> {
     fn new(data: T) -> Self {
-        LockData {
-            borrowed: AtomicBool::new(false),
-            used: UnsafeCell::new(None),
+        LockInner {
+            borrowed: AtomicI64::new(-1),
             data: UnsafeCell::new(data),
+        }
+    }
+
+    pub fn try_borrow(self: &Arc<Self>, pid: PId) -> Result<LockGuard<T>, LockError> {
+        let id = pid.0 as i64;
+
+        match self
+            .borrowed
+            .compare_exchange(-1, id, Ordering::Acquire, Ordering::Relaxed)
+        {
+            Ok(_) => Ok(LockGuard { data: self.clone() }),
+            Err(old) => {
+                let pid = PId(old as usize);
+                Err(LockError::UsedByOthers(pid))
+            }
         }
     }
 }
 
 pub struct LockGuard<T> {
-    data: Arc<LockData<T>>,
+    data: Arc<LockInner<T>>,
 }
 
 impl<T> Drop for LockGuard<T> {
     fn drop(&mut self) {
-        unsafe {
-            (*self.data.used.get()).take();
-        }
-        self.data.borrowed.store(false, Ordering::Release);
+        self.data.borrowed.store(-1, Ordering::Release);
     }
 }
 
