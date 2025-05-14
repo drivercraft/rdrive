@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.5.8"
+version = "0.5.9"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -24,6 +24,6 @@ log = "0.4"
 rdif-base = { version = "0.2", features = [
     "alloc",
 ]}
-rdif-intc = { version = "0.5" }
+rdif-intc = { version = "0.6" }
 rdif-timer = { version = "0.2" }
 rdif-power = { version = "0.2" }
