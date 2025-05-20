@@ -76,10 +76,10 @@ impl ProbeFunc {
             let mut irqs = Vec::new();
 
             if let Some(parent) = irq_parent {
-                let intc = get_dev!(parent, Intc).ok_or(ProbeError::IrqNotInit {
-                    name: register.name.to_string(),
-                })?;
                 if let Some(raws) = register.node.interrupts() {
+                    let intc = get_dev!(parent, Intc).ok_or(ProbeError::IrqNotInit {
+                        name: register.name.to_string(),
+                    })?;
                     let parse_fn = {
                         let mut found = None;
                         let g = intc.spin_try_borrow_by(0.into())?;
