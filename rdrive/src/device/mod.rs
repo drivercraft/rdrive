@@ -65,7 +65,7 @@ define_kind!(
     Intc, rdif_intc::Hardware;
     Systick, rdif_systick::Hardware;
     Power, rdif_power::Hardware;
-    // Block, rdif_block::Hardware;
+    Block, rdif_block::Hardware;
     Clk, rdif_clk::Hardware;
     SysInit, Empty;
 );
