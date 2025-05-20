@@ -18,6 +18,8 @@ pub enum ProbeError {
     Fdt(String),
     #[error("on probe error: {0}")]
     OnProbe(Box<dyn Error>),
+    #[error("open file fail")]
+    OpenFail(#[from] rdif_base::Error),
 }
 
 impl From<FdtError<'_>> for ProbeError {

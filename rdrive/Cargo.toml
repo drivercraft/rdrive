@@ -21,9 +21,8 @@ log = "0.4"
 # rdif-timer = { version = "0.2", path = "../interface/rdif-timer" }
 # rdif-power = { version = "0.2", path = "../interface/rdif-power" }
 
-rdif-base = { version = "0.2.1", features = [
-    "alloc",
-]}
+rdif-base = { version = "0.2.1", features = ["alloc"] }
 rdif-intc = { version = "0.6" }
 rdif-timer = { version = "0.2" }
 rdif-power = { version = "0.2" }
+rdif-systick = { version = "0.1" }

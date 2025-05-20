@@ -2,6 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
+use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
 
@@ -37,7 +38,7 @@ macro_rules! define_kind {
             pub(crate) unsafe fn open(&self)->Result<(), rdif_base::Error>{
                 match self{
                     $(
-                        Self::$en(d)=>unsafe{ &mut *d.force_use()}.open(),
+                        Self::$en(d)=>d.try_borrow_by(0.into()).unwrap().open(),
                     )*
                 }
             }
@@ -47,9 +48,19 @@ macro_rules! define_kind {
 
 pub struct Empty;
 
+impl DriverGeneric for Empty {
+    fn open(&mut self) -> rdif_base::DriverResult {
+        Ok(())
+    }
+
+    fn close(&mut self) -> rdif_base::DriverResult {
+        Ok(())
+    }
+}
+
 define_kind!(
     Intc, rdif_intc::Hardware;
-    Timer, rdif_timer::Hardware;
+    Timer, rdif_systick::Hardware;
     Power, rdif_power::Hardware;
     SysInit, Empty;
 );
