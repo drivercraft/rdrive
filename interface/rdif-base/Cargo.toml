@@ -1,6 +1,6 @@
 [package]
 name = "rdif-base"
-version = "0.2.2"
+version = "0.3.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -9,7 +9,5 @@ description = "Driver Interface base definition."
 keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
-[features]
-alloc = []
 
 [dependencies]

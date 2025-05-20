@@ -2,60 +2,30 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
+use alloc::boxed::Box;
 
+use futures::future::LocalBoxFuture;
 use rdif_base::DriverGeneric;
 
 pub type Error = embedded_hal_nb::serial::ErrorKind;
 
 pub trait Sender: Send {
-    fn can_write(&self) -> bool;
-    fn write(&mut self, byte: u8) -> Result<(), Error>;
-    fn wrire_bytes(&mut self, bytes: &[u8]) -> Result<usize, Error> {
-        let mut n = 0;
-        for &byte in bytes {
-            if !self.can_write() {
-                break;
-            }
-            self.write(byte)?;
-            n += 1;
-        }
-        Ok(n)
+    fn send_blocking(&mut self, data: u8) -> Result<(), Error> {
+        spin_on::spin_on(self.send(data))
+    }
+
+    fn send(&mut self, data: u8) -> LocalBoxFuture<'_, Result<(), Error>>;
+}
+
+pub trait Reciever: Send {
+    fn recieve(&mut self) -> LocalBoxFuture<'_, Result<u8, Error>>;
+    fn recieve_blocking(&mut self) -> Result<u8, Error> {
+        spin_on::spin_on(self.recieve())
     }
 }
 
-pub trait Serial: DriverGeneric {
-    fn can_write(&self) -> bool;
-    fn write(&mut self, byte: u8) -> Result<(), Error>;
-    fn wrire_bytes(&mut self, bytes: &[u8]) -> Result<usize, Error> {
-        let mut n = 0;
-        for &byte in bytes {
-            if !self.can_write() {
-                break;
-            }
-            self.write(byte)?;
-            n += 1;
-        }
-        Ok(n)
-    }
-
-    fn can_read(&self) -> bool;
-    fn read(&mut self) -> Result<u8, Error>;
-    fn read_bytes(&mut self, bytes: &mut [u8]) -> Result<usize, Error> {
-        let mut n = 0;
-        for byte in bytes.iter_mut() {
-            if !self.can_read() {
-                break;
-            }
-            *byte = self.read()?;
-            n += 1;
-        }
-        Ok(n)
-    }
-}
-
-pub struct DeviceSerial {
-    inner: Arc<dyn Serial>,
-    tx: Option<Arc<dyn Serial>>,
-    rx: Option<Arc<dyn Serial>>,
+pub trait Interface: DriverGeneric {
+    fn handle_irq(&mut self);
+    fn take_split(&mut self) -> Option<(Box<dyn Sender>, Box<dyn Reciever>)>;
+    fn restore_split(&mut self, val: (Box<dyn Sender>, Box<dyn Reciever>));
 }
