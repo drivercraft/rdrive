@@ -9,7 +9,8 @@ pub use fdt_parser::Node;
 pub struct ProbePriority(pub usize);
 
 impl ProbePriority {
-    pub const INTC: ProbePriority = ProbePriority(2);
+    pub const CLK: ProbePriority = ProbePriority(6);
+    pub const INTC: ProbePriority = ProbePriority(10);
     pub const DEFAULT: ProbePriority = ProbePriority(256);
 }
 

@@ -126,6 +126,7 @@ impl<T: Sync + Send> Deref for Device<T> {
     }
 }
 
+// #[derive(Clone)]
 pub struct DeviceWeak<T> {
     pub descriptor: Descriptor,
     driver: LockWeak<T>,

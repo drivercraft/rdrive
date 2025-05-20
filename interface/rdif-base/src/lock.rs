@@ -52,6 +52,7 @@ impl<T: Sync + Send> Deref for Lock<T> {
     }
 }
 
+#[derive(Clone)]
 pub struct LockWeak<T> {
     data: Weak<LockInner<T>>,
 }

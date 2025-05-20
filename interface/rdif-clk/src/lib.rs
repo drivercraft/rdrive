@@ -10,15 +10,6 @@ use rdif_base::custom_type;
 
 pub type Hardware = Box<dyn Interface>;
 
-pub struct Clock {
-    pub id: u32,
-    pub name: Option<&'static str>,
-    pub parent: Option<ClockId>,
-    pub rate: u64,
-    pub enabled: bool,
-    pub phase: i32,
-}
-
 custom_type!(ClockId, usize, "{:#x}");
 
 pub trait Interface: DriverGeneric {
