@@ -2,7 +2,7 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind, get_dev,
+    Descriptor, ErrorBase, HardwareKind,
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
     systick::*,
 };

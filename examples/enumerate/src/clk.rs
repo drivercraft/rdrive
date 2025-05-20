@@ -4,7 +4,6 @@ use log::debug;
 use rdrive::{
     Descriptor, ErrorBase, HardwareKind,
     clk::*,
-    get_dev,
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
 
@@ -24,7 +23,7 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe(_node: Node<'_>, _desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
     Ok(HardwareKind::Clk(Box::new(Clock { rate: 0 })))
 }
 

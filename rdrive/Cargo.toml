@@ -20,5 +20,5 @@ rdif-intc = { version = "0.7" }
 rdif-timer = { version = "0.3" }
 rdif-power = { version = "0.3" }
 rdif-systick = { version = "0.2" }
-rdif-block = { path = "../interface/rdif-block" }
-rdif-clk = { path = "../interface/rdif-clk" }
+rdif-block = { version = "0.1" }
+rdif-clk = { version = "0.1" }

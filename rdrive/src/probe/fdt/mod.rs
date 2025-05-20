@@ -1,11 +1,10 @@
-use alloc::{boxed::Box, collections::BTreeMap, format, string::ToString, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, string::ToString, vec::Vec};
 use core::{error::Error, ptr::NonNull};
 use log::debug;
 use rdif_intc::Capability;
 
 pub use fdt_parser::Node;
 use fdt_parser::{Fdt, Phandle, Status};
-use rdif_base::IrqConfig;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
