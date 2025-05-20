@@ -32,6 +32,16 @@ macro_rules! define_kind {
                 $en(Device<$t>),
             )*
         }
+
+        impl DeviceKind{
+            pub(crate) unsafe fn open(&self)->Result<(), rdif_base::Error>{
+                match self{
+                    $(
+                        Self::$en(d)=>unsafe{ &mut *d.force_use()}.open(),
+                    )*
+                }
+            }
+        }
     };
 }
 

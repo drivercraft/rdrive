@@ -76,6 +76,7 @@ fn probe_with<'a>(
 
         if let Some(to_probe) = to_probe {
             let probed = to_probe()?;
+            probed.dev
             edit(|manager| manager.add_probed(probed));
         }
     }
