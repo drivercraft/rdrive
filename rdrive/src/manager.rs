@@ -1,9 +1,9 @@
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 use crate::{
-    DeviceId, DeviceKind, DriverInfoKind, DriverRegister,
-    probe::{EnumSystem, ProbeError},
-    register::{ProbeLevel, RegisterContainer},
+    DeviceId, DeviceKind, DriverInfoKind,
+    probe::{EnumSystem, ProbeError, ProbedDevice, UnprobedDevice},
+    register::{DriverRegisterData, RegisterContainer},
 };
 
 #[derive(Default)]
@@ -11,6 +11,7 @@ pub struct Manager {
     pub registers: RegisterContainer,
     pub dev_map: BTreeMap<DeviceId, DeviceKind>,
     pub enum_system: EnumSystem,
+    initialized: bool,
 }
 
 impl Manager {
@@ -21,36 +22,26 @@ impl Manager {
         }
     }
 
-    pub fn probe_pre_kernel(&mut self) -> Result<(), ProbeError> {
-        let ls = self
-            .registers
-            .unregistered()
-            .into_iter()
-            .filter(|(_, e)| matches!(e.level, ProbeLevel::PreKernel))
-            .collect::<Vec<_>>();
-
-        self.probe_with(&ls)
+    pub fn to_unprobed(
+        &mut self,
+        register: &DriverRegisterData,
+    ) -> Result<Option<UnprobedDevice>, ProbeError> {
+        self.enum_system.to_unprobed(register)
     }
 
-    pub fn probe(&mut self) -> Result<(), ProbeError> {
-        let ls = self.registers.unregistered();
-
-        self.probe_with(&ls)
-    }
-
-    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), ProbeError> {
-        let mut sorted = registers.to_vec();
-        sorted.sort_by(|a, b| a.1.priority.cmp(&b.1.priority));
-
-        let probed_list = match &mut self.enum_system {
-            EnumSystem::Fdt(probe_data) => probe_data.probe(&sorted)?,
-        };
-
-        for probed in probed_list {
-            self.registers.set_probed(probed.register_id);
-            self.dev_map.insert(probed.descriptor.device_id, probed.dev);
+    pub fn unregistered(&mut self) -> Result<Vec<DriverRegisterData>, ProbeError> {
+        if !self.initialized {
+            self.enum_system.init()?;
+            self.initialized = true;
         }
 
-        Ok(())
+        let mut out = self.registers.unregistered();
+        out.sort_by(|a, b| a.register.priority.cmp(&b.register.priority));
+        Ok(out)
+    }
+
+    pub fn add_probed(&mut self, probed: ProbedDevice) {
+        self.registers.set_probed(probed.register_id);
+        self.dev_map.insert(probed.descriptor.device_id, probed.dev);
     }
 }

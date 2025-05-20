@@ -5,7 +5,8 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
-use register::DriverRegister;
+use log::info;
+use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
 mod device;
@@ -57,11 +58,55 @@ pub fn register_append(registers: &[DriverRegister]) {
 }
 
 pub fn probe_pre_kernel() -> Result<(), ProbeError> {
-    edit(|manager| manager.probe_pre_kernel())
+    let unregistered = edit(|manager| manager.unregistered())?;
+
+    let ls = unregistered
+        .iter()
+        .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel));
+
+    probe_with(ls, true)?;
+
+    Ok(())
 }
 
-pub fn probe() -> Result<(), ProbeError> {
-    edit(|manager| manager.probe())
+fn probe_with<'a>(
+    registers: impl Iterator<Item = &'a DriverRegisterData>,
+    stop_if_fail: bool,
+) -> Result<(), ProbeError> {
+    macro_rules! handle_error {
+        ($e: expr, $m: expr) => {
+            if stop_if_fail {
+                $e?
+            } else {
+                match $e {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!("{}: {}", $m, e);
+                        continue;
+                    }
+                }
+            }
+        };
+    }
+
+    for one in registers {
+        let to_probe = edit(|manager| manager.to_unprobed(one))?;
+
+        if let Some(to_probe) = to_probe {
+            let probed = handle_error!(to_probe(), "probe fail");
+            info!("open [{}]", probed.descriptor.name);
+            handle_error!(probed.dev.open(), "open fail");
+            edit(|manager| manager.add_probed(probed));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
+    let unregistered = edit(|manager| manager.unregistered())?;
+
+    probe_with(unregistered.iter(), stop_if_fail)
 }
 
 #[macro_export]

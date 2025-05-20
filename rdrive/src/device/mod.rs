@@ -2,12 +2,14 @@ use core::ops::{Deref, DerefMut};
 
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
+use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
 
 mod descriptor;
 pub mod intc;
 pub mod power;
+pub mod systick;
 pub mod timer;
 
 macro_rules! define_kind {
@@ -32,14 +34,34 @@ macro_rules! define_kind {
                 $en(Device<$t>),
             )*
         }
+
+        impl DeviceKind{
+            pub(crate) fn open(&self)->Result<(), rdif_base::Error>{
+                match self{
+                    $(
+                        Self::$en(d)=>d.try_borrow_by(0.into()).unwrap().open(),
+                    )*
+                }
+            }
+        }
     };
 }
 
 pub struct Empty;
 
+impl DriverGeneric for Empty {
+    fn open(&mut self) -> rdif_base::DriverResult {
+        Ok(())
+    }
+
+    fn close(&mut self) -> rdif_base::DriverResult {
+        Ok(())
+    }
+}
+
 define_kind!(
     Intc, rdif_intc::Hardware;
-    Timer, rdif_timer::Hardware;
+    Systick, rdif_systick::Hardware;
     Power, rdif_power::Hardware;
     SysInit, Empty;
 );

@@ -1,7 +1,7 @@
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::ops::Deref;
 
-use crate::probe::fdt;
+use crate::{custom_id, probe::fdt};
 pub use fdt_parser::Node;
 
 #[repr(transparent)]
@@ -93,15 +93,17 @@ impl Deref for DriverRegisterSlice {
     }
 }
 
-struct RegisterElem {
-    pub register: DriverRegister,
+#[derive(Clone)]
+pub struct DriverRegisterData {
+    pub id: RegisterId,
     pub probed: bool,
+    pub register: DriverRegister,
 }
 
 #[derive(Default)]
 pub struct RegisterContainer {
     id_iter: usize,
-    registers: BTreeMap<usize, RegisterElem>,
+    registers: BTreeMap<RegisterId, DriverRegisterData>,
 }
 
 impl RegisterContainer {
@@ -114,9 +116,12 @@ impl RegisterContainer {
 
     pub fn add(&mut self, register: DriverRegister) {
         self.id_iter += 1;
+        let id = RegisterId(self.id_iter);
+
         self.registers.insert(
-            self.id_iter,
-            RegisterElem {
+            id,
+            DriverRegisterData {
+                id,
                 register,
                 probed: false,
             },
@@ -129,22 +134,18 @@ impl RegisterContainer {
         }
     }
 
-    pub fn set_probed(&mut self, register_idx: usize) {
-        if let Some(elem) = self.registers.get_mut(&register_idx) {
+    pub fn set_probed(&mut self, register_id: RegisterId) {
+        if let Some(elem) = self.registers.get_mut(&register_id) {
             elem.probed = true;
         }
     }
 
-    pub fn unregistered(&self) -> Vec<(usize, DriverRegister)> {
+    pub fn unregistered(&self) -> Vec<DriverRegisterData> {
         self.registers
             .iter()
-            .filter_map(|(id, r)| {
-                if r.probed {
-                    None
-                } else {
-                    Some((*id, r.register.clone()))
-                }
-            })
+            .filter_map(|(_, r)| if r.probed { None } else { Some(r.clone()) })
             .collect()
     }
 }
+
+custom_id!(RegisterId, usize);

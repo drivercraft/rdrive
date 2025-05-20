@@ -7,6 +7,8 @@ use rdrive::{
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
 
+pub mod timer;
+
 fn main() {
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -18,7 +20,7 @@ fn main() {
         addr: NonNull::new(fdt.as_ptr() as usize as _).unwrap(),
     });
     let register = DriverRegister {
-        name: "IrqText",
+        name: "IrqTest",
         probe_kinds: &[ProbeKind::Fdt {
             compatibles: &["arm,cortex-a15-gic"],
             on_probe: probe_intc,
@@ -28,6 +30,7 @@ fn main() {
     };
 
     rdrive::register_add(register);
+    rdrive::register_add(timer::register());
 
     rdrive::probe_pre_kernel().unwrap();
 
@@ -37,25 +40,23 @@ fn main() {
 
         let _g = intc.spin_try_borrow_by(0.into());
     }
+
+    rdrive::probe_all(true).unwrap();
 }
 
 struct IrqTest {}
 
 impl rdrive::intc::DriverGeneric for IrqTest {
     fn open(&mut self) -> DriverResult {
-        todo!()
+        Ok(())
     }
 
     fn close(&mut self) -> DriverResult {
-        todo!()
+        Ok(())
     }
 }
 
 impl rdrive::intc::Interface for IrqTest {
-    fn cpu_interface(&self) -> rdrive::intc::CpuLocal {
-        todo!()
-    }
-
     fn irq_enable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
@@ -90,6 +91,10 @@ impl rdrive::intc::Interface for IrqTest {
 
     fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
         vec![rdrive::intc::Capability::FdtParseConfig(fdt_parse)]
+    }
+
+    fn cpu_interface(&self) -> rdrive::intc::BoxCPU {
+        todo!()
     }
 }
 
