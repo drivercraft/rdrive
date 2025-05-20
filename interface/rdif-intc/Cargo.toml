@@ -1,6 +1,6 @@
 [package]
 name = "rdif-intc"
-version = "0.6.4"
+version = "0.7.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -10,5 +10,5 @@ keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
 [dependencies]
-rdif-base = { version = "0.2" }
+rdif-base = { workspace = true }
 cfg-if = "1.0"

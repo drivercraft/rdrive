@@ -7,7 +7,7 @@ use core::{error::Error, fmt::Display};
 
 use cfg_if::cfg_if;
 use rdif_base::custom_type;
-pub use rdif_base::{DriverGeneric, DriverResult, IrqConfig, IrqId, Trigger};
+pub use rdif_base::{DriverGeneric, IrqConfig, IrqId, Trigger};
 
 custom_type!(CpuId, usize, "{:#x}");
 

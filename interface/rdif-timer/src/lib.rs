@@ -4,7 +4,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-pub use rdif_base::{DriverGeneric, DriverResult, IrqConfig, IrqId, Trigger};
+pub use rdif_base::{DriverGeneric, IrqConfig, IrqId, Trigger};
 
 pub type Hardware = Box<dyn Interface>;
 pub type HardwareCPU = Box<dyn InterfaceCPU>;

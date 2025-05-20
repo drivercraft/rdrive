@@ -10,7 +10,7 @@ keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
 [dependencies]
-rdif-base = { version = "0.2" }
+rdif-base = { workspace = true }
 embedded-hal-nb = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 spin_on = "0.1.1"

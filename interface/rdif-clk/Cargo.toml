@@ -5,4 +5,4 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-rdif-base = { version = "0.2.2", features = ["alloc"] }
+rdif-base = {  workspace = true }

@@ -1,6 +1,5 @@
 {
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.cargo.features": [
-        "alloc"
     ]
 }
