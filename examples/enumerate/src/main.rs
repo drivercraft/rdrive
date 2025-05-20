@@ -41,18 +41,18 @@ fn main() {
         let _g = intc.spin_try_borrow_by(0.into());
     }
 
-    rdrive::probe_all().unwrap();
+    rdrive::probe_all(true).unwrap();
 }
 
 struct IrqTest {}
 
 impl rdrive::intc::DriverGeneric for IrqTest {
     fn open(&mut self) -> DriverResult {
-        todo!()
+        Ok(())
     }
 
     fn close(&mut self) -> DriverResult {
-        todo!()
+        Ok(())
     }
 }
 

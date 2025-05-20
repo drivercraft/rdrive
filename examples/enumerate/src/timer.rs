@@ -4,7 +4,7 @@ use log::debug;
 use rdrive::{
     Descriptor, HardwareKind, get_dev,
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
-    timer::*,
+    systick::*,
 };
 
 struct Timer;
@@ -28,7 +28,17 @@ fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Err
 
     debug!("intc : {}", intc.descriptor.name);
 
-    Ok(HardwareKind::Timer(Box::new(Timer {})))
+    Ok(HardwareKind::Systick(Box::new(Timer {})))
+}
+
+impl DriverGeneric for Timer {
+    fn open(&mut self) -> DriverResult {
+        Ok(())
+    }
+
+    fn close(&mut self) -> DriverResult {
+        Ok(())
+    }
 }
 
 impl Interface for Timer {
