@@ -52,10 +52,6 @@ impl rdrive::intc::DriverGeneric for IrqTest {
 }
 
 impl rdrive::intc::Interface for IrqTest {
-    fn cpu_interface(&self) -> rdrive::intc::CpuLocal {
-        todo!()
-    }
-
     fn irq_enable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
         todo!()
     }
@@ -90,6 +86,10 @@ impl rdrive::intc::Interface for IrqTest {
 
     fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
         vec![rdrive::intc::Capability::FdtParseConfig(fdt_parse)]
+    }
+
+    fn cpu_interface(&self) -> rdrive::intc::BoxCPU {
+        todo!()
     }
 }
 

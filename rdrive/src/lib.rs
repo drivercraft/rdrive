@@ -5,7 +5,7 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
-use register::DriverRegister;
+use register::{DriverRegister, ProbeLevel};
 use spin::Mutex;
 
 mod device;
@@ -57,11 +57,25 @@ pub fn register_append(registers: &[DriverRegister]) {
 }
 
 pub fn probe_pre_kernel() -> Result<(), ProbeError> {
-    edit(|manager| manager.probe_pre_kernel())
+    let unregistered = edit(|manager| manager.unregistered())?;
+
+    for one in unregistered
+        .into_iter()
+        .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel))
+    {
+        edit(|manager| manager.probe(&one))?;
+    }
+
+    Ok(())
 }
 
-pub fn probe() -> Result<(), ProbeError> {
-    edit(|manager| manager.probe())
+pub fn probe_all() -> Result<(), ProbeError> {
+    let unregistered = edit(|manager| manager.unregistered())?;
+
+    for one in unregistered {
+        edit(|manager| manager.probe(&one))?;
+    }
+    Ok(())
 }
 
 #[macro_export]

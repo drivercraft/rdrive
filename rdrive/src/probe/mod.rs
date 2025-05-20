@@ -1,9 +1,12 @@
-use alloc::{boxed::Box, format, string::String};
+use alloc::{boxed::Box, format, string::String, sync::Arc};
 use core::{error::Error, ptr::NonNull};
 
 use fdt_parser::FdtError;
 
-use crate::{Descriptor, DeviceKind, DriverInfoKind};
+use crate::{
+    Descriptor, DeviceKind, DriverInfoKind,
+    register::{DriverRegisterData, RegisterId},
+};
 
 pub mod fdt;
 
@@ -27,6 +30,17 @@ pub enum EnumSystem {
     Fdt(fdt::ProbeFunc),
 }
 
+impl EnumSystem {
+    pub fn probe(
+        &mut self,
+        register: &DriverRegisterData,
+    ) -> Result<Option<ProbedDevice>, ProbeError> {
+        match self {
+            Self::Fdt(fdt) => fdt.probe(register),
+        }
+    }
+}
+
 impl Default for EnumSystem {
     fn default() -> Self {
         Self::Fdt(fdt::ProbeFunc::new(NonNull::dangling()))
@@ -42,7 +56,11 @@ impl From<DriverInfoKind> for EnumSystem {
 }
 
 pub struct ProbedDevice {
-    pub register_id: usize,
+    pub register_id: RegisterId,
     pub descriptor: Descriptor,
     pub dev: DeviceKind,
+}
+
+pub(crate) struct UnprobedDevice {
+    pub register: DriverRegisterData,
 }

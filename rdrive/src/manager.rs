@@ -2,8 +2,8 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 use crate::{
     DeviceId, DeviceKind, DriverInfoKind, DriverRegister,
-    probe::{EnumSystem, ProbeError},
-    register::{ProbeLevel, RegisterContainer},
+    probe::{EnumSystem, ProbeError, ProbedDevice, UnprobedDevice},
+    register::{DriverRegisterData, ProbeLevel, RegisterContainer},
 };
 
 #[derive(Default)]
@@ -21,36 +21,22 @@ impl Manager {
         }
     }
 
-    pub fn probe_pre_kernel(&mut self) -> Result<(), ProbeError> {
-        let ls = self
-            .registers
-            .unregistered()
-            .into_iter()
-            .filter(|(_, e)| matches!(e.level, ProbeLevel::PreKernel))
-            .collect::<Vec<_>>();
-
-        self.probe_with(&ls)
-    }
-
-    pub fn probe(&mut self) -> Result<(), ProbeError> {
-        let ls = self.registers.unregistered();
-
-        self.probe_with(&ls)
-    }
-
-    fn probe_with(&mut self, registers: &[(usize, DriverRegister)]) -> Result<(), ProbeError> {
-        let mut sorted = registers.to_vec();
-        sorted.sort_by(|a, b| a.1.priority.cmp(&b.1.priority));
-
-        let probed_list = match &mut self.enum_system {
-            EnumSystem::Fdt(probe_data) => probe_data.probe(&sorted)?,
-        };
-
-        for probed in probed_list {
-            self.registers.set_probed(probed.register_id);
-            self.dev_map.insert(probed.descriptor.device_id, probed.dev);
+    pub fn probe(&mut self, register: &DriverRegisterData) -> Result<(), ProbeError> {
+        let dev = self.enum_system.probe(register)?;
+        if let Some(dev) = dev {
+            self.add_probed(dev);
         }
-
         Ok(())
+    }
+
+    pub fn unregistered(&self) -> Result<Vec<DriverRegisterData>, ProbeError> {
+        let mut out = self.registers.unregistered();
+        out.sort_by(|a, b| a.register.priority.cmp(&b.register.priority));
+        Ok(out)
+    }
+
+    fn add_probed(&mut self, probed: ProbedDevice) {
+        self.registers.set_probed(probed.register_id);
+        self.dev_map.insert(probed.descriptor.device_id, probed.dev);
     }
 }
