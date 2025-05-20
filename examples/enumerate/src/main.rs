@@ -7,6 +7,8 @@ use rdrive::{
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
 
+pub mod timer;
+
 fn main() {
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -18,7 +20,7 @@ fn main() {
         addr: NonNull::new(fdt.as_ptr() as usize as _).unwrap(),
     });
     let register = DriverRegister {
-        name: "IrqText",
+        name: "IrqTest",
         probe_kinds: &[ProbeKind::Fdt {
             compatibles: &["arm,cortex-a15-gic"],
             on_probe: probe_intc,
@@ -28,6 +30,7 @@ fn main() {
     };
 
     rdrive::register_add(register);
+    rdrive::register_add(timer::register());
 
     rdrive::probe_pre_kernel().unwrap();
 

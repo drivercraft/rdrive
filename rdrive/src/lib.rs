@@ -63,7 +63,7 @@ pub fn probe_pre_kernel() -> Result<(), ProbeError> {
         .iter()
         .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel));
 
-    probe_with(ls);
+    probe_with(ls)?;
 
     Ok(())
 }

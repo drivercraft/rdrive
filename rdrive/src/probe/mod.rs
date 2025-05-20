@@ -1,10 +1,10 @@
-use alloc::{boxed::Box, format, string::String, sync::Arc};
+use alloc::{boxed::Box, format, string::String};
 use core::{error::Error, ptr::NonNull};
 
 use fdt_parser::FdtError;
 
 use crate::{
-    Descriptor, DeviceKind, DriverInfoKind,
+    Descriptor, DeviceError, DeviceKind, DriverInfoKind,
     register::{DriverRegisterData, RegisterId},
 };
 
@@ -23,6 +23,12 @@ pub enum ProbeError {
 impl From<FdtError<'_>> for ProbeError {
     fn from(value: FdtError) -> Self {
         Self::Fdt(format!("{value:?}"))
+    }
+}
+
+impl From<DeviceError> for ProbeError {
+    fn from(value: DeviceError) -> Self {
+        ProbeError::OnProbe(Box::new(value))
     }
 }
 
