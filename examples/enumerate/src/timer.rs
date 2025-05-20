@@ -2,7 +2,7 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, HardwareKind, get_dev,
+    Descriptor, ErrorBase, HardwareKind, get_dev,
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
     systick::*,
 };
@@ -32,11 +32,11 @@ fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Err
 }
 
 impl DriverGeneric for Timer {
-    fn open(&mut self) -> DriverResult {
+    fn open(&mut self) -> Result<(), ErrorBase> {
         Ok(())
     }
 
-    fn close(&mut self) -> DriverResult {
+    fn close(&mut self) -> Result<(), ErrorBase> {
         Ok(())
     }
 }

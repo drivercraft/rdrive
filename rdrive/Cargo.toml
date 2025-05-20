@@ -16,9 +16,9 @@ thiserror = { version = "2", default-features = false }
 log = "0.4"
 
 rdif-base = { workspace = true }
-rdif-intc = { version = "0.6" }
-rdif-timer = { version = "0.2" }
-rdif-power = { version = "0.2" }
-rdif-systick = { version = "0.1" }
+rdif-intc = { version = "0.7" }
+rdif-timer = { version = "0.3" }
+rdif-power = { version = "0.3" }
+rdif-systick = { version = "0.2" }
 rdif-block = { path = "../interface/rdif-block" }
 rdif-clk = { path = "../interface/rdif-clk" }

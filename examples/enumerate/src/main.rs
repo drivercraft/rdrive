@@ -2,7 +2,7 @@ use std::{error::Error, ptr::NonNull};
 
 use log::debug;
 use rdrive::{
-    Descriptor, DriverResult, HardwareKind,
+    Descriptor, ErrorBase, HardwareKind,
     intc::{IrqConfig, IrqId},
     register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
@@ -47,11 +47,11 @@ fn main() {
 struct IrqTest {}
 
 impl rdrive::intc::DriverGeneric for IrqTest {
-    fn open(&mut self) -> DriverResult {
+    fn open(&mut self) -> Result<(), ErrorBase> {
         Ok(())
     }
 
-    fn close(&mut self) -> DriverResult {
+    fn close(&mut self) -> Result<(), ErrorBase> {
         Ok(())
     }
 }

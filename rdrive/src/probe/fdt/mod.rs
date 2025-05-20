@@ -203,7 +203,7 @@ impl ProbeFunc {
         let f = self
             .phandle_2_irq_parse
             .get(&parent)
-            .ok_or(format!("{parent} no irq parser"))?;
+            .ok_or(ProbeError::Fdt(format!("{parent} no irq parser")))?;
         f(irq_cell)
     }
 

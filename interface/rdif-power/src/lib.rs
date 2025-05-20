@@ -4,7 +4,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-pub use rdif_base::DriverGeneric;
+pub use rdif_base::{DriverGeneric, ErrorBase};
 
 pub type Hardware = Box<dyn Interface>;
 

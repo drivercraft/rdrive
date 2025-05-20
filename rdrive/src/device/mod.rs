@@ -6,13 +6,13 @@ use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
 
+pub mod block;
+pub mod clk;
 mod descriptor;
 pub mod intc;
 pub mod power;
 pub mod systick;
 pub mod timer;
-pub mod block;
-pub mod clk;
 
 macro_rules! define_kind {
     ($( $en:ident, $t:path; )*) => {
@@ -38,7 +38,7 @@ macro_rules! define_kind {
         }
 
         impl DeviceKind{
-            pub(crate) fn open(&self)->Result<(), rdif_base::Error>{
+            pub(crate) fn open(&self)->Result<(), rdif_base::ErrorBase>{
                 match self{
                     $(
                         Self::$en(d)=>d.try_borrow_by(0.into()).unwrap().open(),
@@ -52,11 +52,11 @@ macro_rules! define_kind {
 pub struct Empty;
 
 impl DriverGeneric for Empty {
-    fn open(&mut self) -> rdif_base::DriverResult {
+    fn open(&mut self) -> Result<(), rdif_base::ErrorBase> {
         Ok(())
     }
 
-    fn close(&mut self) -> rdif_base::DriverResult {
+    fn close(&mut self) -> Result<(), rdif_base::ErrorBase> {
         Ok(())
     }
 }
