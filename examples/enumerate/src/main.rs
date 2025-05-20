@@ -40,6 +40,8 @@ fn main() {
 
         let _g = intc.spin_try_borrow_by(0.into());
     }
+
+    rdrive::probe_all().unwrap();
 }
 
 struct IrqTest {}
