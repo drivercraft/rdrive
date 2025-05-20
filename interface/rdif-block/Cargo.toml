@@ -1,0 +1,9 @@
+[package]
+name = "rdif-block"
+version = "0.1.0"
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+rdif-base = { version = "0.2", features = ["alloc"] }
+cfg-if = "1.0"

@@ -11,6 +11,8 @@ pub mod intc;
 pub mod power;
 pub mod systick;
 pub mod timer;
+pub mod block;
+pub mod clk;
 
 macro_rules! define_kind {
     ($( $en:ident, $t:path; )*) => {
@@ -63,6 +65,8 @@ define_kind!(
     Intc, rdif_intc::Hardware;
     Systick, rdif_systick::Hardware;
     Power, rdif_power::Hardware;
+    Block, rdif_block::Hardware;
+    Clk, rdif_clk::Hardware;
     SysInit, Empty;
 );
 
