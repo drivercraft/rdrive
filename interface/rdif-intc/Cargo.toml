@@ -10,5 +10,5 @@ keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
 
 [dependencies]
-rdif-base = { path = "../rdif-base", version = "0.2" }
+rdif-base = { version = "0.2" }
 cfg-if = "1.0"
