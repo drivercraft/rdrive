@@ -5,7 +5,7 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
-use register::{DriverRegister, ProbeLevel};
+use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
 mod device;
@@ -59,11 +59,25 @@ pub fn register_append(registers: &[DriverRegister]) {
 pub fn probe_pre_kernel() -> Result<(), ProbeError> {
     let unregistered = edit(|manager| manager.unregistered())?;
 
-    for one in unregistered
-        .into_iter()
-        .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel))
-    {
-        edit(|manager| manager.probe(&one))?;
+    let ls = unregistered
+        .iter()
+        .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel));
+
+    probe_with(ls);
+
+    Ok(())
+}
+
+fn probe_with<'a>(
+    registers: impl Iterator<Item = &'a DriverRegisterData>,
+) -> Result<(), ProbeError> {
+    for one in registers {
+        let to_probe = edit(|manager| manager.to_unprobed(one))?;
+
+        if let Some(to_probe) = to_probe {
+            let probed = to_probe()?;
+            edit(|manager| manager.add_probed(probed));
+        }
     }
 
     Ok(())
@@ -72,10 +86,7 @@ pub fn probe_pre_kernel() -> Result<(), ProbeError> {
 pub fn probe_all() -> Result<(), ProbeError> {
     let unregistered = edit(|manager| manager.unregistered())?;
 
-    for one in unregistered {
-        edit(|manager| manager.probe(&one))?;
-    }
-    Ok(())
+    probe_with(unregistered.iter())
 }
 
 #[macro_export]

@@ -31,12 +31,18 @@ pub enum EnumSystem {
 }
 
 impl EnumSystem {
-    pub fn probe(
+    pub fn init(&mut self) -> Result<(), ProbeError> {
+        match self {
+            Self::Fdt(fdt) => fdt.init(),
+        }
+    }
+
+    pub fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<ProbedDevice>, ProbeError> {
+    ) -> Result<Option<UnprobedDevice>, ProbeError> {
         match self {
-            Self::Fdt(fdt) => fdt.probe(register),
+            Self::Fdt(fdt) => fdt.to_unprobed(register),
         }
     }
 }
@@ -61,6 +67,4 @@ pub struct ProbedDevice {
     pub dev: DeviceKind,
 }
 
-pub(crate) struct UnprobedDevice {
-    pub register: DriverRegisterData,
-}
+pub(crate) type UnprobedDevice = Box<dyn FnOnce() -> Result<ProbedDevice, ProbeError>>;

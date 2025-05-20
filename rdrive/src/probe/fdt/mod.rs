@@ -13,7 +13,7 @@ use crate::{
     register::{DriverRegisterData, ProbeKind, RegisterId},
 };
 
-use super::{ProbeError, ProbedDevice};
+use super::{ProbeError, ProbedDevice, UnprobedDevice};
 
 pub type FnOnProbe = fn(node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>>;
 
@@ -34,6 +34,17 @@ impl ProbeFunc {
         }
     }
 
+    pub fn init(&mut self) -> Result<(), ProbeError> {
+        let fdt = Fdt::from_ptr(self.fdt_addr)?;
+        for node in fdt.all_nodes() {
+            if let Some(phandle) = node.phandle() {
+                self.phandle_2_device_id.insert(phandle, DeviceId::new());
+            }
+        }
+
+        Ok(())
+    }
+
     fn new_device_id(&self, phandle: Option<Phandle>) -> DeviceId {
         if let Some(phandle) = phandle {
             self.phandle_2_device_id[&phandle]
@@ -42,9 +53,14 @@ impl ProbeFunc {
         }
     }
 
-    fn fdt<'a>(&'a self) -> Result<Fdt<'a>, ProbeError> {
-        let fdt = Fdt::from_ptr(self.fdt_addr)?;
-        Ok(fdt)
+    pub fn to_unprobed(&mut self, register: &DriverRegisterData)  -> Result<Option<UnprobedDevice>, ProbeError> {
+
+
+
+
+
+
+        Ok()
     }
 
     pub fn probe(
@@ -76,7 +92,7 @@ impl ProbeFunc {
             }
         }
 
-        let id = DeviceId::new();
+        let id = self.new_device_id(register.node.phandle());
 
         let descriptor = Descriptor {
             name: register.name,
