@@ -25,8 +25,6 @@ pub fn register() -> DriverRegister {
 }
 
 fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    
-
     Ok(HardwareKind::Clk(Box::new(Clock { rate: 0 })))
 }
 
@@ -45,11 +43,11 @@ impl Interface for Clock {
         debug!("enable");
     }
 
-    fn get_rate(&self, _id: ClockId) -> Result<u64, Box<dyn Error>> {
+    fn get_rate(&self, _id: ClockId) -> Result<u64, ErrorBase> {
         Ok(self.rate)
     }
 
-    fn set_rate(&mut self, _id: ClockId, rate: u64) -> Result<(), Box<dyn Error>> {
+    fn set_rate(&mut self, _id: ClockId, rate: u64) -> Result<(), ErrorBase> {
         self.rate = rate;
         Ok(())
     }

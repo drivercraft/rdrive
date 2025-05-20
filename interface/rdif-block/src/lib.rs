@@ -2,10 +2,8 @@
 
 extern crate alloc;
 
-use core::error::Error;
-
 pub use alloc::boxed::Box;
-pub use rdif_base::DriverGeneric;
+pub use rdif_base::{DriverGeneric, ErrorBase};
 
 pub type Hardware = Box<dyn BlockDriver>;
 
@@ -22,14 +20,14 @@ pub trait BlockDriver: DriverGeneric {
     ///
     /// The size of the buffer may exceed the block size, in which case multiple
     /// contiguous blocks will be read.
-    fn read_block(&mut self, block_id: u64, buf: &mut [u8]) -> Result<(), Box<dyn Error>>;
+    fn read_block(&mut self, block_id: u64, buf: &mut [u8]) -> Result<(), ErrorBase>;
 
     /// Writes blocked data to the given block.
     ///
     /// The size of the buffer may exceed the block size, in which case multiple
     /// contiguous blocks will be written.
-    fn write_block(&mut self, block_id: u64, buf: &[u8]) -> Result<(), Box<dyn Error>>;
+    fn write_block(&mut self, block_id: u64, buf: &[u8]) -> Result<(), ErrorBase>;
 
     /// Flushes the device to write all pending data to the storage.
-    fn flush(&mut self) -> Result<(), Box<dyn Error>>;
+    fn flush(&mut self) -> Result<(), ErrorBase>;
 }
