@@ -2,9 +2,7 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind, get_dev,
-    register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
-    systick::*,
+    get_dev, register::{DriverRegister, FdtInfo, Node, ProbeKind, ProbeLevel, ProbePriority}, systick::*, Descriptor, ErrorBase, HardwareKind
 };
 
 struct Timer;
@@ -21,7 +19,7 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe(_node: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
     let parent = desc.irq_parent.unwrap();
 
     let intc = get_dev!(parent, Intc).unwrap();

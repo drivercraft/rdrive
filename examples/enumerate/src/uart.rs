@@ -2,8 +2,8 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind,
-    register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
+    Descriptor, ErrorBase, HardwareKind, get_dev,
+    register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
     systick::*,
 };
 
@@ -21,14 +21,18 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
     debug!("{desc:?}");
 
-    let clk = desc.get_clk_by_name("apb_pclk").unwrap();
+    let clk = fdt.find_clk_by_name("apb_pclk").unwrap();
 
     debug!("clk: {clk:?}");
 
-    let _dev = clk.get_dev().unwrap();
+    let id = fdt
+        .phandle_to_device_id(clk.node.phandle().unwrap())
+        .unwrap();
+
+    let _clk_dev = get_dev!(id, Clk).unwrap();
 
     Ok(HardwareKind::Systick(Box::new(Timer {})))
 }

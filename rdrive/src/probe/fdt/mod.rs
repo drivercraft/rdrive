@@ -3,24 +3,37 @@ use core::{error::Error, ptr::NonNull};
 use log::debug;
 use rdif_intc::Capability;
 
-pub use fdt_parser::Node;
-use fdt_parser::{Fdt, Phandle, Status};
+pub use fdt_parser::*;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId, HardwareKind,
-    clk::{Clock, ClockMap, ClockSrcKind},
-    get_dev,
+    Descriptor, DeviceId, HardwareKind, get_dev,
     register::{DriverRegisterData, ProbeKind, RegisterId},
 };
 
 use super::{ProbeError, ProbedDevice, UnprobedDevice};
 
-pub type FnOnProbe = fn(node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>>;
+#[derive(Clone)]
+pub struct FdtInfo<'a> {
+    pub node: Node<'a>,
+    phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
+}
+
+impl FdtInfo<'_> {
+    pub fn phandle_to_device_id(&self, phandle: Phandle) -> Option<DeviceId> {
+        self.phandle_2_device_id.get(&phandle).copied()
+    }
+
+    pub fn find_clk_by_name(&self, name: &str) -> Option<ClockRef> {
+        self.node.clocks().find(|clock| clock.name == Some(name))
+    }
+}
+
+pub type FnOnProbe =
+    fn(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>>;
 
 pub struct ProbeFunc {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
-    clk_map: ClockMap,
     fdt_addr: NonNull<u8>,
 }
 
@@ -30,7 +43,6 @@ impl ProbeFunc {
     pub fn new(fdt_addr: NonNull<u8>) -> Self {
         Self {
             phandle_2_device_id: Default::default(),
-            clk_map: ClockMap::new(),
             fdt_addr,
         }
     }
@@ -66,16 +78,14 @@ impl ProbeFunc {
 
         let id = self.new_device_id(register.node.phandle());
 
-        self.deal_clk(id, &register);
-
-        let clocks = self.get_clocks(&register);
-
         let irq_parent = register
             .node
             .interrupt_parent()
             .filter(|p| p.node.phandle() != register.node.phandle())
             .and_then(|n| n.node.phandle())
             .and_then(|p| self.phandle_2_device_id.get(&p).copied());
+
+        let phandle_map = self.phandle_2_device_id.clone();
 
         let probe_fn = move || {
             debug!("Probe [{}]->[{}]", register.node.name, register.name);
@@ -115,11 +125,16 @@ impl ProbeFunc {
                 device_id: id,
                 irq_parent,
                 irqs: irqs.clone(),
-                clocks,
             };
 
-            let dev = (register.on_probe)(register.node.clone(), &descriptor)
-                .map_err(ProbeError::OnProbe)?;
+            let dev = (register.on_probe)(
+                FdtInfo {
+                    node: register.node.clone(),
+                    phandle_2_device_id: phandle_map,
+                },
+                &descriptor,
+            )
+            .map_err(ProbeError::OnProbe)?;
 
             let dev = dev.to_device(descriptor.clone());
             Ok(ProbedDevice {
@@ -130,89 +145,6 @@ impl ProbeFunc {
         };
 
         Ok(Some(Box::new(probe_fn)))
-    }
-
-    fn get_clocks(&self, register: &ProbeFdtInfo) -> Vec<Clock> {
-        let mut clocks = Vec::new();
-
-        let clock_names = register
-            .node
-            .find_property("clock-names")
-            .map(|n| n.str_list().collect::<Vec<_>>());
-
-        for (i, clk) in register.node.clocks().enumerate() {
-            let dev_id = self
-                .phandle_2_device_id
-                .get(&clk.node.phandle().unwrap())
-                .copied()
-                .unwrap();
-
-            let mut clock = match self.clk_map.data.get(&dev_id).unwrap() {
-                ClockSrcKind::OneClk(clock) => clock.clone(),
-                ClockSrcKind::Multi(m) => m.get(&clk.select.into()).cloned().unwrap(),
-            };
-
-            if let Some(names) = &clock_names {
-                clock.name = Some(names[i].to_string());
-            }
-
-            clocks.push(clock);
-        }
-
-        clocks
-    }
-
-    fn deal_clk(&mut self, dev_id: DeviceId, register: &ProbeFdtInfo) -> Option<()> {
-        let out_name_list = register.node.find_property("clock-output-names")?;
-        let mut is_multi = false;
-        if let Some(p) = register.node.find_property("#clock-cells") {
-            is_multi = p.u32() == 1;
-        }
-
-        let freq_list = register
-            .node
-            .find_property("clock-frequency")
-            .map(|p| p.u32_list().collect::<Vec<_>>());
-
-        if is_multi {
-            let mut clocks = BTreeMap::new();
-            for (id, out_name) in out_name_list.str_list().enumerate() {
-                let freq = freq_list
-                    .as_ref()
-                    .and_then(|o| o.get(id).copied())
-                    .map(|f| f as u64);
-
-                let clock = Clock {
-                    id: id.into(),
-                    clk: dev_id,
-                    freq,
-                    name: Some(out_name.to_string()),
-                };
-
-                clocks.insert(id.into(), clock);
-            }
-
-            self.clk_map
-                .data
-                .insert(dev_id, ClockSrcKind::Multi(clocks));
-        } else {
-            let freq = freq_list
-                .as_ref()
-                .and_then(|o| o.first().copied())
-                .map(|f| f as u64);
-
-            let clock = Clock {
-                id: 0.into(),
-                clk: dev_id,
-                freq,
-                name: Some(out_name_list.str().to_string()),
-            };
-            self.clk_map
-                .data
-                .insert(dev_id, ClockSrcKind::OneClk(clock));
-        }
-
-        Some(())
     }
 
     fn get_fdt_register(

@@ -5,8 +5,6 @@ pub use rdif_base::*;
 
 use crate::custom_id;
 
-use super::clk::Clock;
-
 custom_id!(DeviceId, u64);
 custom_id!(DriverId, u64);
 
@@ -16,21 +14,9 @@ pub struct Descriptor {
     pub name: &'static str,
     pub irq_parent: Option<DeviceId>,
     pub irqs: Vec<IrqConfig>,
-    pub clocks: Vec<Clock>,
 }
 
-impl Descriptor {
-    pub fn get_clk_by_name(&self, name: &str) -> Option<Clock> {
-        for clk in self.clocks.iter() {
-            if let Some(n) = clk.name.as_ref() {
-                if n.eq(name) {
-                    return Some(clk.clone());
-                }
-            }
-        }
-        None
-    }
-}
+impl Descriptor {}
 
 static ITER: AtomicU64 = AtomicU64::new(0);
 

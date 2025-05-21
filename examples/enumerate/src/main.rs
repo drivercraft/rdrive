@@ -4,7 +4,7 @@ use log::debug;
 use rdrive::{
     Descriptor, ErrorBase, HardwareKind,
     intc::{IrqConfig, IrqId},
-    register::{DriverRegister, Node, ProbeKind, ProbeLevel, ProbePriority},
+    register::{DriverRegister, FdtInfo, Node, ProbeKind, ProbeLevel, ProbePriority},
 };
 
 pub mod clk;
@@ -109,10 +109,10 @@ fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Err
     })
 }
 
-fn probe_intc(node: Node<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe_intc(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
     debug!(
         "on_probe: {}, parent intc {:?}",
-        node.name(),
+        fdt.node.name(),
         desc.irq_parent,
     );
     Ok(HardwareKind::Intc(Box::new(IrqTest {})))

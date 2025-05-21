@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.7.1"
+version = "0.8.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -11,7 +11,7 @@ categories = ["embedded", "no-std"]
 
 [dependencies]
 spin = "0.10"
-fdt-parser = "0.4.15"
+fdt-parser = "0.4.16"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
 

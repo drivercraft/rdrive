@@ -1,6 +1,7 @@
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use core::ops::Deref;
 
+pub use crate::probe::fdt::FdtInfo;
 use crate::{custom_id, probe::fdt};
 pub use fdt_parser::Node;
 
