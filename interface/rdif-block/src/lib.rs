@@ -5,10 +5,10 @@ extern crate alloc;
 pub use alloc::boxed::Box;
 pub use rdif_base::{DriverGeneric, ErrorBase};
 
-pub type Hardware = Box<dyn BlockDriver>;
+pub type Hardware = Box<dyn Interface>;
 
 /// Operations that require a block storage device driver to implement.
-pub trait BlockDriver: DriverGeneric {
+pub trait Interface: DriverGeneric {
     /// The number of blocks in this storage device.
     ///
     /// The total size of the device is `num_blocks() * block_size()`.
