@@ -4,7 +4,7 @@ use log::debug;
 use rdrive::{
     Descriptor, ErrorBase, HardwareKind,
     intc::{IrqConfig, IrqId},
-    register::{DriverRegister, FdtInfo, Node, ProbeKind, ProbeLevel, ProbePriority},
+    register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
 
 pub mod clk;

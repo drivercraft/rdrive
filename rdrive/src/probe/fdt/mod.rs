@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, collections::BTreeMap, string::ToString, vec::Vec};
 use core::{error::Error, ptr::NonNull};
-use log::debug;
+use log::{debug, warn};
 use rdif_intc::Capability;
 
 pub use fdt_parser::*;
@@ -93,28 +93,35 @@ impl ProbeFunc {
 
             if let Some(parent) = irq_parent {
                 if let Some(raws) = register.node.interrupts() {
-                    let intc = get_dev!(parent, Intc).ok_or(ProbeError::IrqNotInit {
-                        name: register.name.to_string(),
-                    })?;
-                    let parse_fn = {
-                        let mut found = None;
-                        let g = intc.spin_try_borrow_by(0.into())?;
-                        #[allow(irrefutable_let_patterns)]
-                        for cap in g.capabilities() {
-                            if let Capability::FdtParseConfig(f) = cap {
-                                found = Some(f);
+                    match get_dev!(parent, Intc) {
+                        Some(intc) => {
+                            let parse_fn = {
+                                let mut found = None;
+                                let g = intc.spin_try_borrow_by(0.into())?;
+                                #[allow(irrefutable_let_patterns)]
+                                for cap in g.capabilities() {
+                                    if let Capability::FdtParseConfig(f) = cap {
+                                        found = Some(f);
+                                    }
+                                }
+                                found
+                            };
+
+                            let parse_fn = parse_fn.ok_or(ProbeError::Fdt(
+                                "irq parent does not have irq parse fn".to_string(),
+                            ))?;
+
+                            for raw in raws {
+                                if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
+                                    irqs.push(irq);
+                                }
                             }
                         }
-                        found
-                    };
-
-                    let parse_fn = parse_fn.ok_or(ProbeError::Fdt(
-                        "irq parent does not have irq parse fn".to_string(),
-                    ))?;
-
-                    for raw in raws {
-                        if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
-                            irqs.push(irq);
+                        None => {
+                            warn!(
+                                "[{}] parent irq driver does not exist, can not parse irq config",
+                                register.name
+                            );
                         }
                     }
                 }
