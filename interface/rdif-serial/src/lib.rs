@@ -9,12 +9,12 @@ pub use rdif_base::DriverGeneric;
 
 pub trait Sender: Send {
     fn write(&mut self, buf: &[u8]) -> Result<usize, SerialError>;
-    fn write_all<'a>(&mut self, buf: &[u8]) -> LocalBoxFuture<'a, Result<(), SerialError>>;
+    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> LocalBoxFuture<'a, Result<(), SerialError>>;
 }
 
 pub trait Reciever: Send {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, SerialError>;
-    fn read_all<'a>(&mut self, buf: &mut [u8]) -> LocalBoxFuture<'a, Result<(), SerialError>>;
+    fn read_all<'a>(&'a mut self, buf: &'a mut [u8]) -> LocalBoxFuture<'a, Result<(), SerialError>>;
 }
 
 pub trait Interface: DriverGeneric {
