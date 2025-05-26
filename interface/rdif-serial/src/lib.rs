@@ -4,28 +4,69 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
-use futures::future::LocalBoxFuture;
-use rdif_base::DriverGeneric;
-
-pub type Error = embedded_hal_nb::serial::ErrorKind;
+pub use futures::future::LocalBoxFuture;
+pub use rdif_base::DriverGeneric;
 
 pub trait Sender: Send {
-    fn send_blocking(&mut self, data: u8) -> Result<(), Error> {
-        spin_on::spin_on(self.send(data))
-    }
-
-    fn send(&mut self, data: u8) -> LocalBoxFuture<'_, Result<(), Error>>;
+    fn write(&mut self, buf: &[u8]) -> Result<usize, SerialError>;
+    fn write_all(&mut self, buf: &[u8]) -> LocalBoxFuture<'_, Result<(), SerialError>>;
 }
 
 pub trait Reciever: Send {
-    fn recieve(&mut self) -> LocalBoxFuture<'_, Result<u8, Error>>;
-    fn recieve_blocking(&mut self) -> Result<u8, Error> {
-        spin_on::spin_on(self.recieve())
-    }
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, SerialError>;
+    fn read_all(&mut self, buf: &mut [u8]) -> LocalBoxFuture<'_, Result<(), SerialError>>;
 }
 
 pub trait Interface: DriverGeneric {
+    /// Call in irq handler.
     fn handle_irq(&mut self);
-    fn take_split(&mut self) -> Option<(Box<dyn Sender>, Box<dyn Reciever>)>;
-    fn restore_split(&mut self, val: (Box<dyn Sender>, Box<dyn Reciever>));
+    /// [`Sender`] will be given back when dropped.
+    fn take_tx(&mut self) -> Option<Box<dyn Sender>>;
+    /// [`Reciever`] will be given back when dropped.
+    fn take_rx(&mut self) -> Option<Box<dyn Reciever>>;
+}
+
+/// Serial error kind.
+///
+/// This represents a common set of serial operation errors. HAL implementations are
+/// free to define more specific or additional error types. However, by providing
+/// a mapping to these common serial errors, generic code can still react to them.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[non_exhaustive]
+pub enum SerialError {
+    /// The peripheral receive buffer was overrun.
+    Overrun,
+    /// Received data does not conform to the peripheral configuration.
+    /// Can be caused by a misconfigured device on either end of the serial line.
+    FrameFormat,
+    /// Parity check failed.
+    Parity,
+    /// Serial line is too noisy to read valid data.
+    Noise,
+    /// Device was closed.
+    Closed,
+    /// A different error occurred. The original error may contain more information.
+    Other,
+}
+
+impl core::error::Error for SerialError {}
+
+impl core::fmt::Display for SerialError {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Overrun => write!(f, "The peripheral receive buffer was overrun"),
+            Self::Parity => write!(f, "Parity check failed"),
+            Self::Noise => write!(f, "Serial line is too noisy to read valid data"),
+            Self::FrameFormat => write!(
+                f,
+                "Received data does not conform to the peripheral configuration"
+            ),
+            Self::Closed => write!(f, "Device was closed"),
+            Self::Other => write!(
+                f,
+                "A different error occurred. The original error may contain more information"
+            ),
+        }
+    }
 }
