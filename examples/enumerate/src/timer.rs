@@ -3,7 +3,7 @@ use std::error::Error;
 use log::debug;
 use rdrive::{
     Descriptor, ErrorBase, HardwareKind, get_dev,
-    register::{DriverRegister, FdtInfo, Node, ProbeKind, ProbeLevel, ProbePriority},
+    register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
     systick::*,
 };
 
@@ -22,14 +22,10 @@ pub fn register() -> DriverRegister {
 }
 
 fn probe(_node: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    match desc.irq_parent {
-        Some(parent) => match get_dev!(parent, Intc) {
-            Some(intc) => {
-                debug!("intc : {}", intc.descriptor.name);
-            }
-            None => {}
-        },
-        None => {}
+    if let Some(parent) = desc.irq_parent {
+        if let Some(intc) = get_dev!(parent, Intc) {
+            debug!("intc : {}", intc.descriptor.name);
+        }
     }
 
     Ok(HardwareKind::Systick(Box::new(Timer {})))
