@@ -1,5 +1,6 @@
 use core::ops::{Deref, DerefMut};
 
+use alloc::boxed::Box;
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
 use rdif_base::DriverGeneric;
@@ -67,6 +68,7 @@ define_kind!(
     Power, rdif_power::Hardware;
     Block, rdif_block::Hardware;
     Clk, rdif_clk::Hardware;
+    Serial, Box<dyn rdif_serial::Interface>;
     SysInit, Empty;
 );
 
