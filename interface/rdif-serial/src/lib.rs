@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 
 pub use futures::future::LocalBoxFuture;
-pub use rdif_base::DriverGeneric;
+pub use rdif_base::{DriverGeneric, ErrorBase};
 
 pub trait Sender: Send {
     fn write(&mut self, buf: &[u8]) -> Result<usize, SerialError>;
@@ -14,7 +14,8 @@ pub trait Sender: Send {
 
 pub trait Reciever: Send {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, SerialError>;
-    fn read_all<'a>(&'a mut self, buf: &'a mut [u8]) -> LocalBoxFuture<'a, Result<(), SerialError>>;
+    fn read_all<'a>(&'a mut self, buf: &'a mut [u8])
+    -> LocalBoxFuture<'a, Result<(), SerialError>>;
 }
 
 pub trait Interface: DriverGeneric {
