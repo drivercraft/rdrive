@@ -1,5 +1,4 @@
 #![no_std]
-
 extern crate alloc;
 
 use core::ptr::NonNull;
@@ -17,6 +16,7 @@ pub mod probe;
 pub mod register;
 pub use device::*;
 pub use manager::*;
+pub use paste::paste;
 pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, ErrorBase, IrqId, io};
 
@@ -154,5 +154,30 @@ macro_rules! get_dev {
                 None
             }
         })
+    };
+}
+
+#[macro_export]
+macro_rules! module_driver {
+    (
+        name : $n:literal,
+        $($i:ident : $t:expr),+,
+    ) => {
+        $crate::paste! {
+            /// Generate a module for the driver.
+            #[allow(unused)]
+            pub mod [<__ $n:lower>] {
+                use super::*;
+                use $crate::register::*;
+
+                ///  Register the driver.
+                #[unsafe(link_section = ".driver.register")]
+                #[unsafe(no_mangle)]
+                pub static [<DRIVER_ $n:upper>]: DriverRegister = DriverRegister {
+                    name: $n,
+                    $($i : $t),+
+                };
+            }
+        }
     };
 }

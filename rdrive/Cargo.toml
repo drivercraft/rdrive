@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.9.2"
+version = "0.10.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -14,6 +14,7 @@ spin = "0.10"
 fdt-parser = "0.4.16"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
+paste = "1.0"
 
 rdif-base = { workspace = true }
 rdif-intc = { version = "0.7" }

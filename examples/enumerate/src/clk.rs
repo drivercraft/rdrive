@@ -4,6 +4,7 @@ use log::debug;
 use rdrive::{
     Descriptor, ErrorBase, HardwareKind,
     clk::*,
+    module_driver,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
 
@@ -50,4 +51,18 @@ impl Interface for Clock {
         self.rate = rate;
         Ok(())
     }
+}
+
+module_driver!(
+    name: "CLK",
+    level: ProbeLevel::PreKernel,
+    priority: ProbePriority::CLK,
+    probe_kinds: &[ProbeKind::Fdt {
+            compatibles: &["test-clk"],
+            on_probe: probe_clk,
+        }],
+);
+
+fn probe_clk(_fdt: FdtInfo<'_>, _desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+    todo!()
 }

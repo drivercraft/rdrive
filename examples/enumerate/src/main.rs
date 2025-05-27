@@ -1,3 +1,5 @@
+#![feature(used_with_arg)]
+
 use std::{error::Error, ptr::NonNull};
 
 use log::debug;
