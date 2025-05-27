@@ -14,13 +14,12 @@ spin = "0.10"
 fdt-parser = "0.4.16"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
-paste = "1.0"
 
 rdif-base = { workspace = true }
 rdif-intc = { version = "0.7" }
 rdif-timer = { version = "0.3" }
 rdif-power = { version = "0.3" }
 rdif-systick = { version = "0.2" }
-rdif-serial ={ version = "0.1" }
+rdif-serial = { version = "0.1" }
 rdif-block = { version = "0.2" }
 rdif-clk = { version = "0.1" }
