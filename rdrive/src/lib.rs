@@ -171,7 +171,7 @@ macro_rules! module_driver {
                 use $crate::register::*;
 
                 ///  Register the driver.
-                #[unsafe(link_section = ".data.driver.register")]
+                #[unsafe(link_section = ".driver.register")]
                 #[unsafe(no_mangle)]
                 pub static [<DRIVER_ $n:upper>]: DriverRegister = DriverRegister {
                     name: $n,
