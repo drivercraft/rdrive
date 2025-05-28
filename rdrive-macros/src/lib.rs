@@ -2,11 +2,6 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 
 #[proc_macro]
-pub fn module_driver(input: TokenStream) -> TokenStream {
-    rdrive_macro_utils::module_driver_with_linker(input, "rdrive", None)
-}
-
-#[proc_macro]
 pub fn __mod_maker(input: TokenStream) -> TokenStream {
     let mut _mod = syn::parse_macro_input!(input as syn::ItemMod);
     let mut name = String::new();

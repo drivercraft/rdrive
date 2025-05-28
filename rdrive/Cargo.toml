@@ -24,4 +24,4 @@ rdif-serial = { version = "0.1" }
 rdif-block = { version = "0.2" }
 rdif-clk = { version = "0.1" }
 
-rdrive-macros  = { version = "0.3", path = "../rdrive-macros" }
+rdrive-macros  = { version = "0.4", path = "../rdrive-macros" }

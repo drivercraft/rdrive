@@ -1,6 +1,6 @@
 [package]
 name = "rdrive-macros"
-version = "0.3.0"
+version = "0.4.0"
 edition.workspace = true
 license = "MIT"
 description = "macros for rdrive"
@@ -12,7 +12,6 @@ categories = ["embedded", "no-std"]
 proc-macro = true
 
 [dependencies]
-rdrive-macro-utils = { version = "0.3", path = "../rdrive-macro-utils" }
 quote = "1.0"
 proc-macro2 = "1.0"
 syn = { version = "2.0", features = ["extra-traits", "full"] }

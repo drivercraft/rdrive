@@ -18,7 +18,7 @@ pub use device::*;
 pub use manager::*;
 pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, ErrorBase, IrqId, io};
-pub use rdrive_macros::__mod_maker;
+pub use rdrive_macros::*;
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 
