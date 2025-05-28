@@ -18,6 +18,7 @@ pub use device::*;
 pub use manager::*;
 pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, ErrorBase, IrqId, io};
+pub use rdrive_macros::__mod_maker;
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 
@@ -159,28 +160,24 @@ macro_rules! get_dev {
 #[macro_export]
 macro_rules! module_driver {
     (
-        _mod: $m:ident,
         $($i:ident : $t:expr),+,
     ) => {
         /// Generate a module for the driver.
         #[allow(unused)]
-        pub mod $m {
-            use super::*;
-            use $crate::register::*;
+        $crate::__mod_maker!{
+            pub mod some {
+                use super::*;
+                use $crate::register::*;
 
-            ///  Register the driver.
-            #[unsafe(link_section = ".driver.register")]
-            pub static DRIVER: DriverRegister = DriverRegister {
-                $($i : $t),+
-            };
+                ///  Register the driver.
+                #[unsafe(link_section = ".driver.register")]
+                #[unsafe(no_mangle)]
+                #[link(used)]
+                pub static DRIVER: DriverRegister = DriverRegister {
+                    $($i : $t),+
+                };
+            }
         }
     };
-    (
-        $($i:ident : $t:expr),+,
-    ) => {
-        module_driver!{
-            _mod: __driver,
-            $($i : $t),+,
-        }
-    };
+
 }

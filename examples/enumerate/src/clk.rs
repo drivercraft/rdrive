@@ -54,7 +54,7 @@ impl Interface for Clock {
 }
 
 module_driver!(
-    name: "CLK",
+    name: "TEST CLK",
     level: ProbeLevel::PreKernel,
     priority: ProbePriority::CLK,
     probe_kinds: &[ProbeKind::Fdt {

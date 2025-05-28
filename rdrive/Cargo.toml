@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.10.2"
+version = "0.10.3"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -23,3 +23,5 @@ rdif-systick = { version = "0.2" }
 rdif-serial = { version = "0.1" }
 rdif-block = { version = "0.2" }
 rdif-clk = { version = "0.1" }
+
+rdrive-macros  = { version = "0.3", path = "../rdrive-macros" }

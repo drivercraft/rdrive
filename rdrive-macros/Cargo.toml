@@ -13,3 +13,6 @@ proc-macro = true
 
 [dependencies]
 rdrive-macro-utils = { version = "0.3", path = "../rdrive-macro-utils" }
+quote = "1.0"
+proc-macro2 = "1.0"
+syn = { version = "2.0", features = ["extra-traits", "full"] }
