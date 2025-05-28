@@ -2,6 +2,8 @@
 
 extern crate alloc;
 
+use core::any::Any;
+
 use alloc::string::String;
 
 #[macro_use]
@@ -26,7 +28,7 @@ pub enum ErrorBase {
     InvalidArg { name: &'static str, val: String },
 }
 
-pub trait DriverGeneric: Send {
+pub trait DriverGeneric: Send + Any {
     fn open(&mut self) -> Result<(), ErrorBase>;
     fn close(&mut self) -> Result<(), ErrorBase>;
 }
