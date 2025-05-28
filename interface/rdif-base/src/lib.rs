@@ -1,15 +1,11 @@
 #![no_std]
-
-extern crate alloc;
-
 use core::any::Any;
-
-use alloc::string::String;
 
 #[macro_use]
 mod _macro;
 
 pub mod io;
+#[cfg(feature = "alloc")]
 pub mod lock;
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
@@ -24,8 +20,8 @@ pub enum ErrorBase {
     Busy,
     #[error("Bad Address: {0:#x}")]
     BadAddr(usize),
-    #[error("Invalid Argument `{name}`: [{val}]")]
-    InvalidArg { name: &'static str, val: String },
+    #[error("Invalid Argument `{name}`")]
+    InvalidArg { name: &'static str },
 }
 
 pub trait DriverGeneric: Send + Any {

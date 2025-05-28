@@ -1,3 +1,5 @@
+extern crate alloc;
+
 use alloc::sync::{Arc, Weak};
 use core::{
     cell::UnsafeCell,
