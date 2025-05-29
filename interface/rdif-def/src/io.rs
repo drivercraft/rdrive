@@ -1,8 +1,27 @@
+use core::fmt::Display;
+
 pub type Result<T = ()> = core::result::Result<T, Error>;
 
 /// Io error
-#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
-pub enum Error {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error {
+    /// The kind of error
+    pub kind: ErrorKind,
+    /// The position of the valid data
+    pub success_pos: usize,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "success pos {}, err:{}", self.success_pos, self.kind)
+    }
+}
+
+impl core::error::Error for Error {}
+
+/// Io error kind
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
     #[error("Other error: {0}")]
     Other(&'static str),
     #[error("Permission denied")]

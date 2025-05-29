@@ -7,9 +7,7 @@ use core::{
     sync::atomic::{AtomicI64, Ordering},
 };
 
-use crate::custom_type;
-
-custom_type!(PId, usize, "{:?}");
+custom_type!(#[doc="Process ID"],PId, usize, "{:?}");
 
 pub enum LockError {
     UsedByOthers(PId),
