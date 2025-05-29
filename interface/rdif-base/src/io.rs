@@ -2,7 +2,6 @@ use core::{fmt::Display, future, task::Poll};
 
 use alloc::boxed::Box;
 pub use async_trait::async_trait;
-pub use rdif_def::io::*;
 
 #[async_trait]
 pub trait Read {
@@ -105,7 +104,7 @@ pub trait Write {
 pub type Result<T = ()> = core::result::Result<T, Error>;
 
 /// Io error
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Error {
     /// The kind of error
     pub kind: ErrorKind,
@@ -122,12 +121,10 @@ impl Display for Error {
 impl core::error::Error for Error {}
 
 /// Io error kind
-#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(thiserror::Error, Debug)]
 pub enum ErrorKind {
     #[error("Other error: {0}")]
-    Other(&'static str),
-    #[error("Permission denied")]
-    PermissionDenied,
+    Other(Box<dyn core::error::Error>),
     #[error("Hardware not available")]
     NotAvailable,
     #[error("Broken pipe")]
