@@ -7,6 +7,8 @@ pub use rdif_def::KError;
 extern crate alloc;
 #[macro_use]
 extern crate rdif_def;
+pub use rdif_def::custom_type;
+pub use rdif_def::irq;
 
 pub mod io;
 pub mod lock;
