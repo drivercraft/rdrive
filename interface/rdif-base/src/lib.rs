@@ -2,13 +2,11 @@
 
 use core::any::Any;
 
-pub use rdif_def::KError;
-
 extern crate alloc;
 #[macro_use]
 extern crate rdif_def;
-pub use rdif_def::custom_type;
-pub use rdif_def::irq;
+
+pub use rdif_def::{CpuId, KError, custom_type, irq};
 
 pub mod io;
 pub mod lock;
