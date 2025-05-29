@@ -4,7 +4,7 @@ use std::{error::Error, ptr::NonNull};
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind,
+    Descriptor, HardwareKind, KError,
     intc::{IrqConfig, IrqId},
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
@@ -53,11 +53,11 @@ fn main() {
 struct IrqTest {}
 
 impl rdrive::intc::DriverGeneric for IrqTest {
-    fn open(&mut self) -> Result<(), ErrorBase> {
+    fn open(&mut self) -> Result<(), KError> {
         Ok(())
     }
 
-    fn close(&mut self) -> Result<(), ErrorBase> {
+    fn close(&mut self) -> Result<(), KError> {
         Ok(())
     }
 }
@@ -95,12 +95,12 @@ impl rdrive::intc::Interface for IrqTest {
         todo!()
     }
 
-    fn capabilities(&self) -> Vec<rdrive::intc::Capability> {
-        vec![rdrive::intc::Capability::FdtParseConfig(fdt_parse)]
+    fn cpu_local(&self) -> Option<rdrive::intc::local::Boxed> {
+        todo!()
     }
 
-    fn cpu_interface(&self) -> rdrive::intc::BoxCPU {
-        todo!()
+    fn parse_dtb_fn(&self) -> Option<rdrive::intc::FuncFdtParseConfig> {
+        Some(fdt_parse)
     }
 }
 

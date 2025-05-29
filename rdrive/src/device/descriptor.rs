@@ -1,7 +1,7 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub use alloc::vec::Vec;
-pub use rdif_base::*;
+pub use rdif_base::irq::IrqConfig;
 
 use crate::custom_id;
 

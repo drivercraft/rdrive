@@ -19,7 +19,7 @@ pub enum ProbeError {
     #[error("on probe error: {0}")]
     OnProbe(Box<dyn Error>),
     #[error("open device fail")]
-    OpenFail(#[from] rdif_base::ErrorBase),
+    OpenFail(#[from] rdif_base::KError),
 }
 
 impl From<FdtError<'_>> for ProbeError {

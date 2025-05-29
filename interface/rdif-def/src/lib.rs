@@ -3,7 +3,6 @@
 #[macro_use]
 mod _macro;
 
-pub mod io;
 pub mod irq;
 
 /// Kernel error

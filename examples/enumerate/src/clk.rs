@@ -2,7 +2,7 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind,
+    Descriptor, HardwareKind, KError,
     clk::*,
     module_driver,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
@@ -29,11 +29,11 @@ fn probe(_node: FdtInfo<'_>, _desc: &Descriptor) -> Result<HardwareKind, Box<dyn
 }
 
 impl DriverGeneric for Clock {
-    fn open(&mut self) -> Result<(), ErrorBase> {
+    fn open(&mut self) -> Result<(), KError> {
         Ok(())
     }
 
-    fn close(&mut self) -> Result<(), ErrorBase> {
+    fn close(&mut self) -> Result<(), KError> {
         Ok(())
     }
 }
@@ -43,11 +43,11 @@ impl Interface for Clock {
         debug!("enable");
     }
 
-    fn get_rate(&self, _id: ClockId) -> Result<u64, ErrorBase> {
+    fn get_rate(&self, _id: ClockId) -> Result<u64, KError> {
         Ok(self.rate)
     }
 
-    fn set_rate(&mut self, _id: ClockId, rate: u64) -> Result<(), ErrorBase> {
+    fn set_rate(&mut self, _id: ClockId, rate: u64) -> Result<(), KError> {
         self.rate = rate;
         Ok(())
     }
