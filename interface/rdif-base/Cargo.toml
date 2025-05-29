@@ -12,5 +12,10 @@ categories = ["embedded", "no-std"]
 [features]
 
 [dependencies]
-rdif-def = "0.1"
+rdif-def = "0.1.1"
+async-trait = "0.1"
 thiserror = { version = "2", default-features = false }
+
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

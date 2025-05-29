@@ -1,4 +1,5 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
+
 use core::any::Any;
 
 pub use rdif_def::KError;
