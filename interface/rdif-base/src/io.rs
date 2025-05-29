@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 pub use async_trait::async_trait;
 pub use rdif_def::io::*;
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Read {
     /// Read data from the device.
     fn read(&mut self, buf: &mut [u8]) -> Result;
@@ -54,7 +54,7 @@ pub trait Read {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Write {
     /// Write data to the device.
     fn write(&mut self, buf: &[u8]) -> Result;
@@ -109,7 +109,7 @@ mod test {
 
     struct TRead;
 
-    #[async_trait(?Send)]
+    #[async_trait]
     impl Read for TRead {
         fn read(&mut self, buf: &mut [u8]) -> Result {
             const MAX: usize = 2;
@@ -128,6 +128,76 @@ mod test {
             Ok(())
         }
     }
+
+    struct ARead<'a, 'b> {
+        n: usize,
+        buf: &'a mut [u8],
+        p: &'b mut TRead2,
+    }
+
+    impl Future for ARead<'_, '_> {
+        type Output = Result;
+
+        fn poll(
+            mut self: core::pin::Pin<&mut Self>,
+            cx: &mut core::task::Context<'_>,
+        ) -> Poll<Self::Output> {
+            let this = &mut *self;
+            let ARead { n, buf, p } = this;
+
+            let tmp = &mut buf[*n..];
+            if let Err(mut e) = p.read(tmp) {
+                *n += e.success_pos;
+                if !matches!(e.kind, ErrorKind::Interrupted) {
+                    e.success_pos = *n;
+                    return Poll::Ready(Err(e));
+                }
+            } else {
+                *n += tmp.len();
+            }
+            if *n == buf.len() {
+                Poll::Ready(Ok(()))
+            } else {
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+        }
+    }
+
+    struct TRead2;
+
+    impl Read for TRead2 {
+        #[doc = " Read data from the device."]
+        fn read(&mut self, buf: &mut [u8]) -> Result {
+            const MAX: usize = 2;
+            if !buf.is_empty() {
+                buf[0] = 1;
+            }
+            if buf.len() > 1 {
+                buf[1] = 1;
+            }
+            if buf.len() > MAX {
+                return Err(Error {
+                    kind: ErrorKind::Interrupted,
+                    success_pos: MAX,
+                });
+            }
+            Ok(())
+        }
+
+        fn read_all<'life0, 'life1, 'async_trait>(
+            &'life0 mut self,
+            buf: &'life1 mut [u8],
+        ) -> ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result> + 'async_trait + Send>>
+        where
+            'life0: 'async_trait,
+            'life1: 'async_trait,
+            Self: 'async_trait,
+        {
+            Box::pin(ARead { n: 0, buf, p: self })
+        }
+    }
+
     struct TWrite {
         data: [u8; 8],
         iter: usize,
@@ -184,7 +254,22 @@ mod test {
     async fn test_async_r() {
         let mut buf = [0; 8];
 
-        let mut read = TRead;
+        let buf = tokio::spawn(async move {
+            let mut read = TRead;
+            read.read_all(&mut buf).await.unwrap();
+            buf
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(buf, [1; 8]);
+    }
+
+    #[tokio::test]
+    async fn test_async_r2() {
+        let mut buf = [0; 8];
+
+        let mut read = TRead2;
         read.read_all(&mut buf).await.unwrap();
 
         assert_eq!(buf, [1; 8]);
