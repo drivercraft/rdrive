@@ -49,12 +49,8 @@ pub enum SerialError {
 impl From<SerialError> for io::ErrorKind {
     fn from(value: SerialError) -> Self {
         match value {
-            SerialError::Overrun => io::ErrorKind::BrokenPipe,
-            SerialError::FrameFormat => todo!(),
-            SerialError::Parity => todo!(),
-            SerialError::Noise => todo!(),
             SerialError::Closed => io::ErrorKind::BrokenPipe,
-            SerialError::Other => todo!(),
+            _ => io::ErrorKind::Other(Box::new(value)),
         }
     }
 }
