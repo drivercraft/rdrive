@@ -2,7 +2,7 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, ErrorBase, HardwareKind, get_dev,
+    Descriptor, HardwareKind, KError, get_dev,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
     systick::*,
 };
@@ -38,17 +38,17 @@ fn probe(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Er
 }
 
 impl DriverGeneric for Timer {
-    fn open(&mut self) -> Result<(), ErrorBase> {
+    fn open(&mut self) -> Result<(), KError> {
         Ok(())
     }
 
-    fn close(&mut self) -> Result<(), ErrorBase> {
+    fn close(&mut self) -> Result<(), KError> {
         Ok(())
     }
 }
 
 impl Interface for Timer {
-    fn get_current_cpu(&mut self) -> Box<dyn InterfaceCPU> {
+    fn cpu_local(&mut self) -> local::Boxed {
         todo!()
     }
 }

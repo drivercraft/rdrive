@@ -1,51 +1,57 @@
 use core::ops::{Deref, DerefMut};
 
-use alloc::boxed::Box;
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
+use paste::paste;
 use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
 
-pub mod block;
-pub mod clk;
 mod descriptor;
-pub mod intc;
-pub mod power;
-pub mod systick;
-pub mod timer;
 
 macro_rules! define_kind {
-    ($( $en:ident, $t:path; )*) => {
-        pub enum HardwareKind {
-            $(
-                $en($t),
-            )*
-        }
+    ($( $en:ident, )*) => {
+        paste!{
+            pub enum HardwareKind {
+                $(
+                    $en([<$en:lower>]::Boxed),
+                )*
+            }
 
-        impl HardwareKind{
-            pub fn to_device(self, desc: Descriptor)->DeviceKind{
-                match self{
-                    $(
-                        Self::$en(d)=> DeviceKind::$en( Device::new(desc,d)),
-                    )*
+            impl HardwareKind{
+                pub fn to_device(self, desc: Descriptor)->DeviceKind{
+                    match self{
+                        $(
+                            Self::$en(d)=> DeviceKind::$en( Device::new(desc,d)),
+                        )*
+                    }
                 }
             }
-        }
-        pub enum DeviceKind {
-            $(
-                $en(Device<$t>),
-            )*
-        }
+            pub enum DeviceKind {
+                $(
+                    $en([<$en:lower>]::Device),
+                )*
+            }
 
-        impl DeviceKind{
-            pub(crate) fn open(&self)->Result<(), rdif_base::ErrorBase>{
-                match self{
-                    $(
-                        Self::$en(d)=>d.try_borrow_by(0.into()).unwrap().open(),
-                    )*
+            impl DeviceKind{
+                pub(crate) fn open(&self)->Result<(), rdif_base::KError>{
+                    match self{
+                        $(
+                            Self::$en(d)=>d.try_borrow_by(0.into()).unwrap().open(),
+                        )*
+                    }
                 }
             }
+
+            $(
+                pub mod [<$en:lower>]{
+                    pub use [<rdif_ $en:lower>]::*;
+
+                    pub type Boxed = alloc::boxed::Box<dyn Interface>;
+                    pub type Device = super::Device<Boxed>;
+                    pub type Weak = super::DeviceWeak<Boxed>;
+                }
+            )*
         }
     };
 }
@@ -53,24 +59,16 @@ macro_rules! define_kind {
 pub struct Empty;
 
 impl DriverGeneric for Empty {
-    fn open(&mut self) -> Result<(), rdif_base::ErrorBase> {
+    fn open(&mut self) -> Result<(), rdif_base::KError> {
         Ok(())
     }
 
-    fn close(&mut self) -> Result<(), rdif_base::ErrorBase> {
+    fn close(&mut self) -> Result<(), rdif_base::KError> {
         Ok(())
     }
 }
 
-define_kind!(
-    Intc, rdif_intc::Hardware;
-    Systick, rdif_systick::Hardware;
-    Power, rdif_power::Hardware;
-    Block, rdif_block::Hardware;
-    Clk, rdif_clk::Hardware;
-    Serial, Box<dyn rdif_serial::Interface>;
-    SysInit, Empty;
-);
+define_kind!(Intc, Systick, Power, Block, Clk, Serial,);
 
 pub struct Device<T> {
     pub descriptor: Descriptor,
