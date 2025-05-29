@@ -15,7 +15,7 @@ fdt-parser = "0.4.16"
 thiserror = { version = "2", default-features = false }
 log = "0.4"
 
-rdif-base = { workspace = true, features = ["alloc"] }
+rdif-base = { workspace = true }
 rdif-intc = { version = "0.7" }
 rdif-timer = { version = "0.3" }
 rdif-power = { version = "0.3" }

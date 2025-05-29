@@ -1,11 +1,10 @@
 #![no_std]
 
 extern crate alloc;
+extern crate rdif_base;
 
 pub use alloc::boxed::Box;
 pub use rdif_base::DriverGeneric;
-pub use rdif_base::ErrorBase;
-use rdif_base::custom_type;
 
 pub type Hardware = Box<dyn Interface>;
 
