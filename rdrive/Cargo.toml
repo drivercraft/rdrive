@@ -1,6 +1,6 @@
 [package]
 name = "rdrive"
-version = "0.11.0"
+version = "0.12.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -16,13 +16,12 @@ thiserror = { version = "2", default-features = false }
 log = "0.4"
 
 rdif-base = { workspace = true }
-rdif-intc = { version = "0.8" }
-# rdif-timer = { version = "0.3" }
-rdif-power = { version = "0.4" }
-rdif-systick = { version = "0.3" }
-rdif-serial = { version = "0.2" }
-rdif-block = { version = "0.3" }
-rdif-clk = { version = "0.2" }
+rdif-intc = { version = "*" }
+rdif-power = { version = "*" }
+rdif-systick = { version = "*" }
+rdif-serial = { version = "*" }
+rdif-block = { version = "*" }
+rdif-clk = { version = "*" }
 
 rdrive-macros = { version = "0.4", path = "../rdrive-macros" }
 paste = "1"
