@@ -17,4 +17,6 @@ pub enum Trigger {
 pub struct IrqConfig {
     pub irq: IrqId,
     pub trigger: Trigger,
+    /// Is cpu private interrupt?
+    pub is_private: bool,
 }
