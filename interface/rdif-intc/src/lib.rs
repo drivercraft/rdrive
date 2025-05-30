@@ -32,15 +32,17 @@ pub mod local {
     /// controller capability
     pub enum Capability {
         None,
-        LocalIrq(cap::BoxedLocalIrq),
+        /// Local interface can config local irq.
+        ConfigLocalIrq(cap::BoxedConfigLocalIrq),
     }
 
     pub mod cap {
         use super::*;
 
-        pub type BoxedLocalIrq = Box<dyn LocalIrq>;
+        pub type BoxedConfigLocalIrq = Box<dyn ConfigLocalIrq>;
 
-        pub trait LocalIrq: Send + Sync {
+        /// Local interface can config local irq.
+        pub trait ConfigLocalIrq: Send + Sync {
             fn irq_enable(&self, irq: IrqId) -> Result<(), IntcError>;
             fn irq_disable(&self, irq: IrqId) -> Result<(), IntcError>;
             fn set_priority(&self, irq: IrqId, priority: usize) -> Result<(), IntcError>;
