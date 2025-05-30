@@ -1,6 +1,6 @@
 [package]
 name = "rdif-base"
-version = "0.4.5"
+version = "0.5.0"
 edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
 repository.workspace = true
@@ -12,7 +12,7 @@ categories = ["embedded", "no-std"]
 [features]
 
 [dependencies]
-rdif-def = "0.1.1"
+rdif-def = "0.2.0"
 async-trait = "0.1"
 thiserror = { version = "2", default-features = false }
 
