@@ -16,12 +16,13 @@ thiserror = { version = "2", default-features = false }
 log = "0.4"
 
 rdif-base = { workspace = true }
-rdif-intc = { version = "*" }
-rdif-power = { version = "*" }
-rdif-systick = { version = "*" }
-rdif-serial = { version = "*" }
-rdif-block = { version = "*" }
-rdif-clk = { version = "*" }
+rdif-intc = { version = "0.9" }
+# rdif-timer = { version = "0.3" }
+rdif-power = { version = "0.4" }
+rdif-systick = { version = "0.3" }
+rdif-serial = { version = "0.2" }
+rdif-block = { version = "0.3" }
+rdif-clk = { version = "0.2" }
 
 rdrive-macros = { version = "0.4", path = "../rdrive-macros" }
 paste = "1"
