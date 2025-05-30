@@ -8,6 +8,6 @@ repository = "https://github.com/drivercraft/rdrive"
 
 [workspace.dependencies]
 log = "0.4"
-rdif-base = { version = "0.4.1" }
+rdif-base = { version = "0.5" }
 rdrive = { path = "rdrive" }
 rdrive-macros = { path = "rdrive-macros" }
