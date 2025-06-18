@@ -108,6 +108,7 @@ fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Err
     Ok(IrqConfig {
         irq: 0.into(),
         trigger: rdrive::intc::Trigger::EdgeBoth,
+        is_private: false,
     })
 }
 
