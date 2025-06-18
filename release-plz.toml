@@ -1,0 +1,7 @@
+[workspace]
+git_release_enable = false
+
+[[package]]
+name = "enumerate"
+release = false # don't process this package
+publish = false
