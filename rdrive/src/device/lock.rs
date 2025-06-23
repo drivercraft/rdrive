@@ -11,16 +11,16 @@ use alloc::{
 };
 use rdif_clk::DriverGeneric;
 
-use crate::{Pid, get_pid};
+use crate::{Descriptor, Pid, get_pid};
 
 pub struct DeviceOwner {
     lock: Arc<LockInner>,
 }
 
 impl DeviceOwner {
-    pub fn new<T: DriverGeneric + 'static>(device: T) -> Self {
+    pub fn new<T: DriverGeneric + 'static>(descriptor: Descriptor, device: T) -> Self {
         Self {
-            lock: Arc::new(LockInner::new(Box::into_raw(Box::new(device)))),
+            lock: Arc::new(LockInner::new(descriptor, Box::into_raw(Box::new(device)))),
         }
     }
 
@@ -52,16 +52,18 @@ impl Drop for LockInner {
 struct LockInner {
     borrowed: AtomicI64,
     ptr: *mut dyn Any,
+    descriptor: Descriptor,
 }
 
 unsafe impl Send for LockInner {}
 unsafe impl Sync for LockInner {}
 
 impl LockInner {
-    fn new(ptr: *mut dyn Any) -> Self {
+    fn new(descriptor: Descriptor, ptr: *mut dyn Any) -> Self {
         Self {
             borrowed: AtomicI64::new(-1),
             ptr,
+            descriptor,
         }
     }
 
@@ -93,6 +95,7 @@ impl LockInner {
             Ok(_) => Ok(DeviceGuard {
                 lock: self.clone(),
                 mark: PhantomData,
+                descriptor: &self.descriptor as *const Descriptor as *mut Descriptor,
             }),
             Err(old) => {
                 let pid: Pid = (old as usize).into();
@@ -118,6 +121,7 @@ impl LockInner {
 
 pub struct DeviceGuard<T: DriverGeneric> {
     lock: Arc<LockInner>,
+    descriptor: *mut Descriptor,
     mark: PhantomData<T>,
 }
 
@@ -148,6 +152,15 @@ impl<T: DriverGeneric> DerefMut for DeviceGuard<T> {
             let device = &mut *self.lock.ptr;
             device.downcast_mut().expect("DeviceGuard type mismatch")
         }
+    }
+}
+
+impl<T: DriverGeneric> DeviceGuard<T> {
+    pub fn descriptor(&self) -> &Descriptor {
+        unsafe { &*self.descriptor }
+    }
+    pub(crate) fn descriptor_mut(&mut self) -> &mut Descriptor {
+        unsafe { &mut *self.descriptor }
     }
 }
 

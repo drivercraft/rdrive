@@ -227,7 +227,8 @@ impl DeviceContainer {
     }
 
     pub fn insert<T: DriverGeneric + 'static>(&mut self, id: DeviceId, device: T) {
-        self.devices.insert(id, DeviceOwner::new(device));
+        self.devices
+            .insert(id, DeviceOwner::new(Descriptor::default(), device));
     }
 
     pub fn get_typed<T: DriverGeneric>(
@@ -265,14 +266,12 @@ impl DeviceContainer {
 }
 
 pub struct DevSerial {
-    pub descriptor: Descriptor,
     pub driver: Box<dyn rdif_serial::Interface>,
 }
 
 impl DevSerial {
-    pub fn new<T: rdif_serial::Interface>(descriptor: Descriptor, driver: T) -> Self {
+    pub fn new<T: rdif_serial::Interface>(driver: T) -> Self {
         Self {
-            descriptor,
             driver: Box::new(driver),
         }
     }
@@ -337,6 +336,7 @@ mod tests {
 
             assert!(device.open().is_ok());
             assert!(device.close().is_ok());
+            device.descriptor_mut().name = "Test Device";
         }
 
         {
@@ -344,6 +344,7 @@ mod tests {
 
             assert!(device.open().is_ok());
             assert!(device.close().is_ok());
+            assert_eq!(device.descriptor().name, "Test Device");
         }
     }
     #[test]
