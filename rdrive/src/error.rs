@@ -1,12 +1,10 @@
 use alloc::{boxed::Box, format, string::String};
 
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum DriverError {
-    #[error("fdt error: {0}")]
+    #[error("FDT error: {0}")]
     Fdt(String),
-    #[error("unknown driver error: {0}")]
+    #[error("Unknown driver error: {0}")]
     Unknown(String),
 }
 

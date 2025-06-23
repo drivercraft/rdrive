@@ -1,4 +1,6 @@
 #![no_std]
+#![feature(box_as_ptr)]
+
 extern crate alloc;
 
 use core::ptr::NonNull;
@@ -12,10 +14,13 @@ mod device;
 pub mod error;
 mod id;
 mod manager;
+mod osal;
 pub mod probe;
 pub mod register;
+
 pub use device::*;
 pub use manager::*;
+pub use osal::*;
 pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;

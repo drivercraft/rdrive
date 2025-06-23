@@ -1,13 +1,18 @@
+use core::any::Any;
 use core::ops::{Deref, DerefMut};
 
+use alloc::boxed::Box;
+use alloc::collections::btree_map::BTreeMap;
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
 use paste::paste;
 use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
-
 mod descriptor;
+mod device;
+
+pub use device::*;
 
 macro_rules! define_kind {
     ($( $en:ident, )*) => {
@@ -206,6 +211,71 @@ impl From<LockError> for DeviceError {
         match value {
             LockError::UsedByOthers(pid) => Self::UsedByOthers(pid),
             LockError::DeviceReleased => Self::Droped,
+        }
+    }
+}
+
+pub(crate) struct DeviceContainer {
+    devices: BTreeMap<DeviceId, DeviceOwner>,
+}
+
+impl DeviceContainer {
+    pub fn new() -> Self {
+        Self {
+            devices: BTreeMap::new(),
+        }
+    }
+
+    pub fn insert<T: DriverGeneric + 'static>(&mut self, id: DeviceId, device: T) {
+        self.devices.insert(id, DeviceOwner::new(device));
+    }
+
+    pub fn get_typed<T: DriverGeneric>(
+        &self,
+        id: DeviceId,
+    ) -> Result<DeviceWeakTyped<T>, GetDeviceError> {
+        let dev = self.devices.get(&id).ok_or(GetDeviceError::NotFound)?;
+
+        dev.weak_typed()
+    }
+
+    pub fn get(&self, id: DeviceId) -> Option<device::DeviceWeak> {
+        let dev = self.devices.get(&id)?;
+        Some(dev.weak())
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum GetDeviceError {
+    #[error("device not found")]
+    NotFound,
+    #[error("device type not match")]
+    TypeNotMatch,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_device_container() {
+        let mut container = DeviceContainer::new();
+        let id = DeviceId::new();
+        container.insert(id, Empty);
+        let weak = container.get_typed::<Empty>(id).unwrap();
+
+        {
+            let mut device = weak.lock().unwrap();
+
+            assert!(device.open().is_ok());
+            assert!(device.close().is_ok());
+        }
+
+        {
+            let mut device = weak.lock().unwrap();
+
+            assert!(device.open().is_ok());
+            assert!(device.close().is_ok());
         }
     }
 }

@@ -45,3 +45,4 @@ impl Manager {
         self.dev_map.insert(probed.descriptor.device_id, probed.dev);
     }
 }
+
