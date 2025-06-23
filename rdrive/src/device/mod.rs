@@ -1,7 +1,5 @@
-use core::any::Any;
 use core::ops::{Deref, DerefMut};
 
-use alloc::boxed::Box;
 use alloc::collections::btree_map::BTreeMap;
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
@@ -10,9 +8,9 @@ use rdif_base::DriverGeneric;
 use rdif_base::lock::{Lock, LockGuard, LockWeak};
 pub use rdif_base::lock::{LockError, PId};
 mod descriptor;
-mod device;
+mod lock;
 
-pub use device::*;
+pub use lock::*;
 
 macro_rules! define_kind {
     ($( $en:ident, )*) => {
@@ -239,7 +237,7 @@ impl DeviceContainer {
         dev.weak_typed()
     }
 
-    pub fn get(&self, id: DeviceId) -> Option<device::DeviceWeak> {
+    pub fn get(&self, id: DeviceId) -> Option<lock::DeviceWeak> {
         let dev = self.devices.get(&id)?;
         Some(dev.weak())
     }
