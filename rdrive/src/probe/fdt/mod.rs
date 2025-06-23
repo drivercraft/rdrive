@@ -90,8 +90,8 @@ impl ProbeFunc {
             debug!("Probe [{}]->[{}]", register.node.name, register.name);
             let mut irqs = Vec::new();
 
-            if let Some(parent) = irq_parent {
-                if let Some(raws) = register.node.interrupts() {
+            if let Some(parent) = irq_parent
+                && let Some(raws) = register.node.interrupts() {
                     match get_dev!(parent, Intc) {
                         Some(intc) => {
                             let parse_fn = { intc.spin_try_borrow_by(0.into())?.parse_dtb_fn() }
@@ -113,7 +113,6 @@ impl ProbeFunc {
                         }
                     }
                 }
-            }
 
             let descriptor = Descriptor {
                 name: register.name,

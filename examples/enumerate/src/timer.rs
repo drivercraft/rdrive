@@ -22,10 +22,10 @@ pub fn register() -> DriverRegister {
 }
 
 fn probe(_node: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    if let Some(parent) = desc.irq_parent {
-        if let Some(intc) = get_dev!(parent, Intc) {
-            debug!("intc : {}", intc.descriptor.name);
-        }
+    if let Some(parent) = desc.irq_parent
+        && let Some(intc) = get_dev!(parent, Intc)
+    {
+        debug!("intc : {}", intc.descriptor.name);
     }
 
     Ok(HardwareKind::Systick(Box::new(Timer {})))

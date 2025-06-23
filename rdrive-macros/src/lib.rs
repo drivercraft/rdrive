@@ -7,20 +7,17 @@ pub fn __mod_maker(input: TokenStream) -> TokenStream {
     let mut name = String::new();
 
     for c in _mod.content.as_ref().unwrap().1.iter() {
-        if let syn::Item::Static(st) = c {
-            if let syn::Expr::Struct(expr_struct) = st.expr.as_ref() {
-                for field in &expr_struct.fields {
-                    if let syn::Member::Named(ident) = &field.member {
-                        if *ident == "name" {
-                            if let syn::Expr::Group(expr_group) = &field.expr {
-                                if let syn::Expr::Lit(expr_lit) = expr_group.expr.as_ref() {
-                                    if let syn::Lit::Str(lit_str) = &expr_lit.lit {
-                                        name = lit_str.value();
-                                    }
-                                }
-                            }
-                        }
-                    }
+        if let syn::Item::Static(st) = c
+            && let syn::Expr::Struct(expr_struct) = st.expr.as_ref()
+        {
+            for field in &expr_struct.fields {
+                if let syn::Member::Named(ident) = &field.member
+                    && *ident == "name"
+                    && let syn::Expr::Group(expr_group) = &field.expr
+                    && let syn::Expr::Lit(expr_lit) = expr_group.expr.as_ref()
+                    && let syn::Lit::Str(lit_str) = &expr_lit.lit
+                {
+                    name = lit_str.value();
                 }
             }
         }
