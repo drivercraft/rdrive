@@ -11,7 +11,7 @@ use alloc::{
 };
 use rdif_clk::DriverGeneric;
 
-use crate::{GetDeviceError, Pid, get_pid};
+use crate::{Pid, get_pid};
 
 pub struct DeviceOwner {
     lock: Arc<LockInner>,
@@ -73,37 +73,43 @@ impl LockInner {
         self: &Arc<Self>,
         pid: Pid,
         check: bool,
-    ) -> Result<DeviceGuard<T>, LockError> {
+    ) -> Result<DeviceGuard<T>, GetDeviceError> {
         if check && !self.is::<T>() {
-            return Err(LockError::TypeNotMatch);
+            return Err(GetDeviceError::TypeNotMatch);
+        }
+        let mut pid = pid;
+        if pid.is_not_set() {
+            pid = Pid::INVALID.into();
         }
 
         let id: usize = pid.into();
 
-        match self
-            .borrowed
-            .compare_exchange(-1, id as _, Ordering::Acquire, Ordering::Relaxed)
-        {
+        match self.borrowed.compare_exchange(
+            Pid::NOT_SET as _,
+            id as _,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
             Ok(_) => Ok(DeviceGuard {
                 lock: self.clone(),
                 mark: PhantomData,
             }),
             Err(old) => {
                 let pid: Pid = (old as usize).into();
-                Err(LockError::UsedByOthers(pid))
+                Err(GetDeviceError::UsedByOthers(pid))
             }
         }
     }
 
-    pub fn lock<T: DriverGeneric>(self: &Arc<Self>) -> Result<DeviceGuard<T>, LockError> {
+    pub fn lock<T: DriverGeneric>(self: &Arc<Self>) -> Result<DeviceGuard<T>, GetDeviceError> {
         if !self.is::<T>() {
-            return Err(LockError::TypeNotMatch);
+            return Err(GetDeviceError::TypeNotMatch);
         }
         let pid = get_pid();
         loop {
             match self.try_lock(pid, false) {
                 Ok(guard) => return Ok(guard),
-                Err(LockError::UsedByOthers(_)) => continue,
+                Err(GetDeviceError::UsedByOthers(_)) => continue,
                 Err(e) => return Err(e),
             }
         }
@@ -115,9 +121,13 @@ pub struct DeviceGuard<T: DriverGeneric> {
     mark: PhantomData<T>,
 }
 
+unsafe impl<T: DriverGeneric> Send for DeviceGuard<T> {}
+
 impl<T: DriverGeneric> Drop for DeviceGuard<T> {
     fn drop(&mut self) {
-        self.lock.borrowed.store(-1, Ordering::Release);
+        self.lock
+            .borrowed
+            .store(Pid::NOT_SET as _, Ordering::Release);
     }
 }
 
@@ -152,14 +162,17 @@ impl DeviceWeak {
         }
     }
 
-    pub fn try_lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, LockError> {
+    pub fn try_lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
         self.lock
             .upgrade()
-            .ok_or(LockError::DeviceReleased)?
+            .ok_or(GetDeviceError::DeviceReleased)?
             .try_lock(get_pid(), true)
     }
-    pub fn lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, LockError> {
-        self.lock.upgrade().ok_or(LockError::DeviceReleased)?.lock()
+    pub fn lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
+        self.lock
+            .upgrade()
+            .ok_or(GetDeviceError::DeviceReleased)?
+            .lock()
     }
 }
 
@@ -176,20 +189,22 @@ impl<T: DriverGeneric> DeviceWeakTyped<T> {
         }
     }
 
-    pub fn lock(&self) -> Result<DeviceGuard<T>, LockError> {
+    pub fn lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
         self.dev.lock()
     }
-    pub fn try_lock(&self) -> Result<DeviceGuard<T>, LockError> {
+    pub fn try_lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
         self.dev.try_lock()
     }
 }
 
 #[derive(thiserror::Error, Debug, Clone, Copy)]
-pub enum LockError {
+pub enum GetDeviceError {
     #[error("used by pid: {0:?}")]
     UsedByOthers(Pid),
     #[error("device type not match")]
     TypeNotMatch,
     #[error("device released")]
     DeviceReleased,
+    #[error("device not found")]
+    NotFound,
 }

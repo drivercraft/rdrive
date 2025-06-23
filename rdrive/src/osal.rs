@@ -3,6 +3,19 @@ use spin::RwLock;
 
 custom_type!(#[doc="Process ID"],Pid, usize, "{:?}");
 
+impl Pid {
+    pub const NOT_SET: usize = -1isize as usize;
+    pub const INVALID: usize = -2isize as usize;
+
+    pub fn is_not_set(&self) -> bool {
+        self.0 == Pid::NOT_SET
+    }
+
+    pub fn is_invalid(&self) -> bool {
+        self.0 == Pid::INVALID
+    }
+}
+
 pub trait Osal: Sync + Send + 'static {
     /// Get the current process ID.
     fn get_pid(&self) -> Pid;

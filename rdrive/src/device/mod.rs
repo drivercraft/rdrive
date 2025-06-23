@@ -1,6 +1,8 @@
 use core::ops::{Deref, DerefMut};
 
+use alloc::boxed::Box;
 use alloc::collections::btree_map::BTreeMap;
+use alloc::vec::Vec;
 pub use descriptor::Descriptor;
 pub use descriptor::DeviceId;
 use paste::paste;
@@ -241,19 +243,87 @@ impl DeviceContainer {
         let dev = self.devices.get(&id)?;
         Some(dev.weak())
     }
+
+    pub fn get_one<T: DriverGeneric>(&self) -> Option<DeviceWeakTyped<T>> {
+        for dev in self.devices.values() {
+            if let Ok(val) = dev.weak_typed::<T>() {
+                return Some(val);
+            }
+        }
+        None
+    }
+
+    pub fn devices<T: DriverGeneric>(&self) -> Vec<DeviceWeakTyped<T>> {
+        let mut result = Vec::new();
+        for dev in self.devices.values() {
+            if let Ok(val) = dev.weak_typed::<T>() {
+                result.push(val);
+            }
+        }
+        result
+    }
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum GetDeviceError {
-    #[error("device not found")]
-    NotFound,
-    #[error("device type not match")]
-    TypeNotMatch,
+pub struct DevSerial {
+    pub descriptor: Descriptor,
+    pub driver: Box<dyn rdif_serial::Interface>,
+}
+
+impl DevSerial {
+    pub fn new<T: rdif_serial::Interface>(descriptor: Descriptor, driver: T) -> Self {
+        Self {
+            descriptor,
+            driver: Box::new(driver),
+        }
+    }
+}
+
+impl DriverGeneric for DevSerial {
+    fn open(&mut self) -> Result<(), rdif_base::KError> {
+        self.driver.open()
+    }
+
+    fn close(&mut self) -> Result<(), rdif_base::KError> {
+        self.driver.close()
+    }
+}
+
+impl Deref for DevSerial {
+    type Target = dyn rdif_serial::Interface;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.driver
+    }
+}
+
+impl DerefMut for DevSerial {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.driver
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct DeviceTest {
+        opened: bool,
+    }
+
+    impl DriverGeneric for DeviceTest {
+        fn open(&mut self) -> Result<(), rdif_base::KError> {
+            self.opened = true;
+            Ok(())
+        }
+
+        fn close(&mut self) -> Result<(), rdif_base::KError> {
+            if !self.opened {
+                panic!("Device not opened before closing");
+            }
+            self.opened = false;
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_device_container() {
@@ -274,6 +344,45 @@ mod tests {
 
             assert!(device.open().is_ok());
             assert!(device.close().is_ok());
+        }
+    }
+    #[test]
+    fn test_get_one() {
+        let mut container = DeviceContainer::new();
+        let id1 = DeviceId::new();
+        let id2 = DeviceId::new();
+        container.insert(id1, Empty);
+        container.insert(id2, DeviceTest { opened: false });
+
+        let weak = container.get_one::<Empty>().unwrap();
+        {
+            let mut device = weak.lock().unwrap();
+            assert!(device.open().is_ok());
+            assert!(device.close().is_ok());
+        }
+    }
+
+    #[test]
+    fn test_devices() {
+        let mut container = DeviceContainer::new();
+        let id1 = DeviceId::new();
+        let id2 = DeviceId::new();
+        container.insert(id1, Empty);
+        container.insert(id2, Empty);
+        container.insert(DeviceId::new(), DeviceTest { opened: false });
+        let devices = container.devices::<Empty>();
+        assert_eq!(devices.len(), 2);
+    }
+
+    #[test]
+    fn test_not_found() {
+        let container = DeviceContainer::new();
+        let dev = container.get_one::<DevSerial>();
+        assert!(dev.is_none(), "Expected no devices found");
+
+        if let Some(dev) = dev {
+            let mut weak = dev.lock().unwrap();
+            weak.take_rx();
         }
     }
 }
