@@ -1,12 +1,10 @@
 use alloc::{boxed::Box, format, string::String};
-use core::{error::Error, ptr::NonNull};
+use core::error::Error;
+use enum_dispatch::enum_dispatch;
 
 use fdt_parser::FdtError;
 
-use crate::{
-    Descriptor, DeviceError, DeviceKind, DriverInfoKind,
-    register::{DriverRegisterData, RegisterId},
-};
+use crate::{Platform, error::DriverError, register::DriverRegisterData};
 
 pub mod fdt;
 
@@ -28,51 +26,25 @@ impl From<FdtError<'_>> for ProbeError {
     }
 }
 
-impl From<DeviceError> for ProbeError {
-    fn from(value: DeviceError) -> Self {
-        ProbeError::OnProbe(Box::new(value))
-    }
+#[enum_dispatch]
+pub(crate) enum EnumSystem {
+    Fdt(fdt::System),
 }
 
-pub enum EnumSystem {
-    Fdt(fdt::ProbeFunc),
+#[enum_dispatch(EnumSystem)]
+pub(crate) trait EnumSystemTrait {
+    fn to_unprobed(
+        &mut self,
+        register: &DriverRegisterData,
+    ) -> Result<Option<UnprobedDevice>, ProbeError>;
 }
 
 impl EnumSystem {
-    pub fn init(&mut self) -> Result<(), ProbeError> {
-        match self {
-            Self::Fdt(fdt) => fdt.init(),
-        }
-    }
-
-    pub fn to_unprobed(
-        &mut self,
-        register: &DriverRegisterData,
-    ) -> Result<Option<UnprobedDevice>, ProbeError> {
-        match self {
-            Self::Fdt(fdt) => fdt.to_unprobed(register),
-        }
+    pub fn new(platform: Platform) -> Result<Self, DriverError> {
+        Ok(match platform {
+            Platform::Fdt { addr } => Self::Fdt(fdt::System::new(addr)?),
+        })
     }
 }
 
-impl Default for EnumSystem {
-    fn default() -> Self {
-        Self::Fdt(fdt::ProbeFunc::new(NonNull::dangling()))
-    }
-}
-
-impl From<DriverInfoKind> for EnumSystem {
-    fn from(value: DriverInfoKind) -> Self {
-        match value {
-            DriverInfoKind::Fdt { addr } => EnumSystem::Fdt(fdt::ProbeFunc::new(addr)),
-        }
-    }
-}
-
-pub struct ProbedDevice {
-    pub register_id: RegisterId,
-    pub descriptor: Descriptor,
-    pub dev: DeviceKind,
-}
-
-pub(crate) type UnprobedDevice = Box<dyn FnOnce() -> Result<ProbedDevice, ProbeError>>;
+pub(crate) type UnprobedDevice = Box<dyn FnOnce() -> Result<(), ProbeError>>;

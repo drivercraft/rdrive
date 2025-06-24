@@ -20,7 +20,7 @@ fn main() {
 
     let fdt = include_bytes!("../../../data/qemu.dtb");
 
-    rdrive::init(rdrive::DriverInfoKind::Fdt {
+    rdrive::init(rdrive::Platform::Fdt {
         addr: NonNull::new(fdt.as_ptr() as usize as _).unwrap(),
     });
     let register = DriverRegister {

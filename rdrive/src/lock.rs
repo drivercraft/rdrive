@@ -2,6 +2,7 @@ use core::{
     any::Any,
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    ptr::null_mut,
     sync::atomic::{AtomicI64, Ordering},
 };
 
@@ -24,11 +25,11 @@ impl DeviceOwner {
         }
     }
 
-    pub fn weak_typed<T: DriverGeneric>(&self) -> Result<DeviceWeakTyped<T>, GetDeviceError> {
+    pub fn weak_typed<T: DriverGeneric>(&self) -> Result<Device<T>, GetDeviceError> {
         if !self.is::<T>() {
             return Err(GetDeviceError::TypeNotMatch);
         }
-        Ok(DeviceWeakTyped::new(DeviceWeak::new(&self.lock)))
+        Ok(Device::new(DeviceWeak::new(&self.lock)))
     }
 
     pub fn weak(&self) -> DeviceWeak {
@@ -98,8 +99,12 @@ impl LockInner {
                 descriptor: &self.descriptor as *const Descriptor as *mut Descriptor,
             }),
             Err(old) => {
-                let pid: Pid = (old as usize).into();
-                Err(GetDeviceError::UsedByOthers(pid))
+                if old as usize == Pid::INVALID {
+                    Err(GetDeviceError::UsedByUnknown)
+                } else {
+                    let pid: Pid = (old as usize).into();
+                    Err(GetDeviceError::UsedByOthers(pid))
+                }
             }
         }
     }
@@ -159,9 +164,6 @@ impl<T: DriverGeneric> DeviceGuard<T> {
     pub fn descriptor(&self) -> &Descriptor {
         unsafe { &*self.descriptor }
     }
-    pub(crate) fn descriptor_mut(&mut self) -> &mut Descriptor {
-        unsafe { &mut *self.descriptor }
-    }
 }
 
 pub struct DeviceWeak {
@@ -187,14 +189,31 @@ impl DeviceWeak {
             .ok_or(GetDeviceError::DeviceReleased)?
             .lock()
     }
+
+    /// 强制获取设备
+    ///
+    /// # Safety
+    /// 一般用于中断处理中
+    pub unsafe fn force_use<T: DriverGeneric>(&self) -> *mut T {
+        let lock = match self.lock.upgrade() {
+            Some(v) => v,
+            None => return null_mut(),
+        };
+
+        let ptr = match unsafe { &mut *lock.ptr }.downcast_mut() {
+            Some(v) => v,
+            None => return null_mut(),
+        };
+        ptr as *mut T
+    }
 }
 
-pub struct DeviceWeakTyped<T> {
+pub struct Device<T> {
     dev: DeviceWeak,
     mark: PhantomData<T>,
 }
 
-impl<T: DriverGeneric> DeviceWeakTyped<T> {
+impl<T: DriverGeneric> Device<T> {
     fn new(dev: DeviceWeak) -> Self {
         Self {
             dev,
@@ -208,16 +227,26 @@ impl<T: DriverGeneric> DeviceWeakTyped<T> {
     pub fn try_lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
         self.dev.try_lock()
     }
+
+    /// 强制获取设备
+    ///
+    /// # Safety
+    /// 一般用于中断处理中
+    pub unsafe fn force_use(&self) -> *mut T {
+        unsafe { self.dev.force_use() }
+    }
 }
 
 #[derive(thiserror::Error, Debug, Clone, Copy)]
 pub enum GetDeviceError {
-    #[error("used by pid: {0:?}")]
+    #[error("Used by pid: {0:?}")]
     UsedByOthers(Pid),
-    #[error("device type not match")]
+    #[error("Used by unknown pid")]
+    UsedByUnknown,
+    #[error("Device type not match")]
     TypeNotMatch,
-    #[error("device released")]
+    #[error("Device released")]
     DeviceReleased,
-    #[error("device not found")]
+    #[error("Device not found")]
     NotFound,
 }

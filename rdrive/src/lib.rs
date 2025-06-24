@@ -6,39 +6,49 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
-use log::info;
+use log::{info, warn};
 use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
-mod device;
+mod descriptor;
+pub mod device;
 pub mod error;
 mod id;
+mod lock;
 mod manager;
 mod osal;
+
 pub mod probe;
 pub mod register;
 
-pub use device::*;
+pub use descriptor::*;
+pub use lock::*;
 pub use manager::*;
 pub use osal::*;
 pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;
 
+use crate::error::DriverError;
+
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 
 #[derive(Debug, Clone)]
-pub enum DriverInfoKind {
+pub enum Platform {
     Fdt { addr: NonNull<u8> },
 }
 
-unsafe impl Send for DriverInfoKind {}
+unsafe impl Send for Platform {}
 
-pub fn init(probe_kind: DriverInfoKind) {
-    MANAGER.lock().replace(Manager::new(probe_kind));
+pub fn init(platform: Platform) -> Result<(), DriverError> {
+    let mut g = MANAGER.lock();
+    if g.is_none() {
+        g.replace(Manager::new(platform)?);
+    }
+    Ok(())
 }
 
-pub fn edit<F, T>(f: F) -> T
+pub(crate) fn edit<F, T>(f: F) -> T
 where
     F: FnOnce(&mut Manager) -> T,
 {
@@ -46,7 +56,7 @@ where
     f(g.as_mut().expect("manager not init"))
 }
 
-pub fn read<F, T>(f: F) -> T
+pub(crate) fn read<F, T>(f: F) -> T
 where
     F: FnOnce(&Manager) -> T,
 {
@@ -98,10 +108,7 @@ fn probe_with<'a>(
         let to_probe = edit(|manager| manager.to_unprobed(one))?;
 
         if let Some(to_probe) = to_probe {
-            let probed = handle_error!(to_probe(), "probe fail");
-            info!("open [{}]", probed.descriptor.name);
-            handle_error!(probed.dev.open(), "open fail");
-            edit(|manager| manager.add_probed(probed));
+            handle_error!(to_probe(), "probe fail");
         }
     }
 
@@ -110,56 +117,58 @@ fn probe_with<'a>(
 
 pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
     let unregistered = edit(|manager| manager.unregistered())?;
-
     probe_with(unregistered.iter(), stop_if_fail)
 }
 
-#[macro_export]
-macro_rules! dev_list {
-    ($k: ident) => {
-        $crate::read(|manager| {
-            extern crate alloc;
-
-            manager
-                .dev_map
-                .iter()
-                .filter_map(|(_, v)| {
-                    if let $crate::DeviceKind::$k(dev) = v {
-                        Some(dev.weak())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<alloc::vec::Vec<_>>()
-        })
-    };
+pub fn get_list<T: DriverGeneric>() -> Vec<Device<T>> {
+    read(|manager| manager.dev_container.devices())
 }
-#[macro_export]
-macro_rules! get_dev {
-    ($k:ident) => {
-        $crate::read(|m| {
-            m.dev_map
-                .iter()
-                .filter_map(|(_, v)| {
-                    if let $crate::DeviceKind::$k(dev) = v {
-                        Some(dev.weak())
-                    } else {
-                        None
-                    }
-                })
-                .next()
-        })
-    };
-    ($id:expr, $k:ident) => {
-        $crate::read(|m| {
-            let dev = m.dev_map.get(&$id)?;
-            if let $crate::DeviceKind::$k(dev) = dev {
-                Some(dev.weak())
-            } else {
-                None
-            }
-        })
-    };
+
+pub fn get<T: DriverGeneric>(id: DeviceId) -> Result<Device<T>, GetDeviceError> {
+    read(|manager| manager.dev_container.get_typed(id))
+}
+
+pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
+    read(|manager| manager.dev_container.get_one())
+}
+
+pub fn add_device<T: DriverGeneric + 'static>(id: DeviceId, device: T) -> Result<(), KError> {
+    edit(|manager| {
+        manager.dev_container.insert(id, device);
+        Ok(())
+    })
+}
+
+pub struct PlatformDevice {
+    pub descriptor: Descriptor,
+    is_added: bool,
+}
+
+impl PlatformDevice {
+    pub(crate) fn new(descriptor: Descriptor) -> Self {
+        Self {
+            descriptor,
+            is_added: false,
+        }
+    }
+
+    /// Register a device to the driver manager.
+    ///
+    /// # Panics
+    /// This method will panic if the device with the same ID is already added
+    pub fn register<T: DriverGeneric>(&mut self, device: T) {
+        if self.is_added {
+            panic!(
+                "Device with ID {:?} is already added",
+                self.descriptor.device_id
+            );
+        }
+        edit(|manager| {
+            manager
+                .dev_container
+                .insert(self.descriptor.device_id, device);
+        });
+    }
 }
 
 #[macro_export]
@@ -184,5 +193,4 @@ macro_rules! module_driver {
             }
         }
     };
-
 }
