@@ -1,5 +1,5 @@
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use rdif_clk::DriverGeneric;
+use rdif_base::DriverGeneric;
 
 use crate::{
     Descriptor, Device, DeviceId, DeviceOwner, DeviceWeak, GetDeviceError, Platform,
@@ -47,9 +47,9 @@ pub(crate) struct DeviceContainer {
 }
 
 impl DeviceContainer {
-    pub fn insert<T: DriverGeneric + 'static>(&mut self, id: DeviceId, device: T) {
+    pub fn insert<T: DriverGeneric + 'static>(&mut self, descriptor: Descriptor, device: T) {
         self.devices
-            .insert(id, DeviceOwner::new(Descriptor::default(), device));
+            .insert(descriptor.device_id, DeviceOwner::new(descriptor, device));
     }
 
     pub fn get_typed<T: DriverGeneric>(&self, id: DeviceId) -> Result<Device<T>, GetDeviceError> {
@@ -85,7 +85,7 @@ impl DeviceContainer {
 
 #[cfg(test)]
 mod tests {
-    use crate::device::{self, Empty};
+    use crate::driver::{self, Empty};
 
     use super::*;
 
@@ -111,9 +111,10 @@ mod tests {
     #[test]
     fn test_device_container() {
         let mut container = DeviceContainer::default();
-        let id = DeviceId::new();
-        container.insert(id, device::Empty);
-        let weak = container.get_typed::<device::Empty>(id).unwrap();
+        let desc = Descriptor::default();
+        let id = desc.device_id;
+        container.insert(desc, driver::Empty);
+        let weak = container.get_typed::<driver::Empty>(id).unwrap();
 
         {
             let mut device = weak.lock().unwrap();
@@ -132,10 +133,8 @@ mod tests {
     #[test]
     fn test_get_one() {
         let mut container = DeviceContainer::default();
-        let id1 = DeviceId::new();
-        let id2 = DeviceId::new();
-        container.insert(id1, Empty);
-        container.insert(id2, DeviceTest { opened: false });
+        container.insert(Descriptor::default(), Empty);
+        container.insert(Descriptor::default(), DeviceTest { opened: false });
 
         let weak = container.get_one::<Empty>().unwrap();
         {
@@ -148,11 +147,9 @@ mod tests {
     #[test]
     fn test_devices() {
         let mut container = DeviceContainer::default();
-        let id1 = DeviceId::new();
-        let id2 = DeviceId::new();
-        container.insert(id1, Empty);
-        container.insert(id2, Empty);
-        container.insert(DeviceId::new(), DeviceTest { opened: false });
+        container.insert(Descriptor::default(), Empty);
+        container.insert(Descriptor::default(), Empty);
+        container.insert(Descriptor::default(), DeviceTest { opened: false });
         let devices = container.devices::<Empty>();
         assert_eq!(devices.len(), 2);
     }
@@ -160,7 +157,7 @@ mod tests {
     #[test]
     fn test_not_found() {
         let container = DeviceContainer::default();
-        let dev = container.get_one::<device::Intc>();
+        let dev = container.get_one::<driver::Intc>();
         assert!(dev.is_none(), "Expected no devices found");
 
         if let Some(dev) = dev {

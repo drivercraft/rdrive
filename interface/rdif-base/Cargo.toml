@@ -1,21 +1,21 @@
 [package]
-name = "rdif-base"
-version = "0.5.0"
-edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
-repository.workspace = true
-license = "MIT"
-description = "Driver Interface base definition."
-keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
+description = "Driver Interface base definition."
+edition.workspace = true
+keywords = ["os", "driver"]
+license = "MIT"
+name = "rdif-base"
+repository.workspace = true
+version = "0.5.0"
 
 [features]
 
 [dependencies]
-rdif-def = "0.2.0"
+as-any = "0.3.2"
 async-trait = "0.1"
-thiserror = { version = "2", default-features = false }
-
+rdif-def = "0.2.0"
+thiserror = {version = "2", default-features = false}
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = {version = "1", features = ["full"]}

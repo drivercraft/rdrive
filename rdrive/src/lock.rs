@@ -10,7 +10,7 @@ use alloc::{
     boxed::Box,
     sync::{Arc, Weak},
 };
-use rdif_clk::DriverGeneric;
+use rdif_base::DriverGeneric;
 
 use crate::{Descriptor, Pid, get_pid};
 
@@ -166,15 +166,22 @@ impl<T: DriverGeneric> DeviceGuard<T> {
     }
 }
 
+#[derive(Clone)]
 pub struct DeviceWeak {
     lock: Weak<LockInner>,
+    descriptor: Descriptor,
 }
 
 impl DeviceWeak {
     fn new(lock: &Arc<LockInner>) -> Self {
         Self {
             lock: Arc::downgrade(lock),
+            descriptor: lock.descriptor.clone(),
         }
+    }
+
+    pub fn descriptor(&self) -> &Descriptor {
+        &self.descriptor
     }
 
     pub fn try_lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
@@ -208,13 +215,14 @@ impl DeviceWeak {
     }
 }
 
+#[derive(Clone)]
 pub struct Device<T> {
-    dev: DeviceWeak,
+    pub(crate) dev: DeviceWeak,
     mark: PhantomData<T>,
 }
 
 impl<T: DriverGeneric> Device<T> {
-    fn new(dev: DeviceWeak) -> Self {
+    pub(crate) fn new(dev: DeviceWeak) -> Self {
         Self {
             dev,
             mark: PhantomData,
@@ -226,6 +234,10 @@ impl<T: DriverGeneric> Device<T> {
     }
     pub fn try_lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
         self.dev.try_lock()
+    }
+
+    pub fn descriptor(&self) -> &Descriptor {
+        self.dev.descriptor()
     }
 
     /// 强制获取设备

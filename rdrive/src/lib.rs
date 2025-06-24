@@ -6,12 +6,11 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
-use log::{info, warn};
 use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
 mod descriptor;
-pub mod device;
+pub mod driver;
 pub mod error;
 mod id;
 mod lock;
@@ -128,45 +127,30 @@ pub fn get<T: DriverGeneric>(id: DeviceId) -> Result<Device<T>, GetDeviceError> 
     read(|manager| manager.dev_container.get_typed(id))
 }
 
+pub fn get_raw(id: DeviceId) -> Option<DeviceWeak> {
+    read(|manager| manager.dev_container.get(id))
+}
+
 pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
     read(|manager| manager.dev_container.get_one())
 }
 
-pub fn add_device<T: DriverGeneric + 'static>(id: DeviceId, device: T) -> Result<(), KError> {
-    edit(|manager| {
-        manager.dev_container.insert(id, device);
-        Ok(())
-    })
-}
-
 pub struct PlatformDevice {
     pub descriptor: Descriptor,
-    is_added: bool,
 }
 
 impl PlatformDevice {
     pub(crate) fn new(descriptor: Descriptor) -> Self {
-        Self {
-            descriptor,
-            is_added: false,
-        }
+        Self { descriptor }
     }
 
     /// Register a device to the driver manager.
     ///
     /// # Panics
     /// This method will panic if the device with the same ID is already added
-    pub fn register<T: DriverGeneric>(&mut self, device: T) {
-        if self.is_added {
-            panic!(
-                "Device with ID {:?} is already added",
-                self.descriptor.device_id
-            );
-        }
+    pub fn register<T: DriverGeneric>(self, driver: T) {
         edit(|manager| {
-            manager
-                .dev_container
-                .insert(self.descriptor.device_id, device);
+            manager.dev_container.insert(self.descriptor, driver);
         });
     }
 }

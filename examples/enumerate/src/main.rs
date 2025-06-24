@@ -4,8 +4,7 @@ use std::{error::Error, ptr::NonNull};
 
 use log::debug;
 use rdrive::{
-    Descriptor, HardwareKind, KError,
-    intc::{IrqConfig, IrqId},
+    IrqConfig, IrqId, KError, PlatformDevice, driver, get_list,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
 
@@ -22,7 +21,9 @@ fn main() {
 
     rdrive::init(rdrive::Platform::Fdt {
         addr: NonNull::new(fdt.as_ptr() as usize as _).unwrap(),
-    });
+    })
+    .unwrap();
+
     let register = DriverRegister {
         name: "IrqTest",
         probe_kinds: &[ProbeKind::Fdt {
@@ -40,11 +41,14 @@ fn main() {
 
     rdrive::probe_pre_kernel().unwrap();
 
-    let intc_list = rdrive::dev_list!(Intc);
+    let intc_list = get_list::<driver::Intc>();
     for intc in intc_list {
-        println!("intc: {:?}", intc.descriptor);
+        println!("intc: {:?}", intc.descriptor());
 
-        let _g = intc.spin_try_borrow_by(0.into());
+        let g = intc.lock().unwrap();
+
+        let t = g.typed_ref::<IrqTest>();
+        assert!(t.is_some(), "Intc should be [IrqTest]");
     }
 
     rdrive::probe_all(true).unwrap();
@@ -52,7 +56,7 @@ fn main() {
 
 struct IrqTest {}
 
-impl rdrive::intc::DriverGeneric for IrqTest {
+impl rdrive::DriverGeneric for IrqTest {
     fn open(&mut self) -> Result<(), KError> {
         Ok(())
     }
@@ -62,12 +66,12 @@ impl rdrive::intc::DriverGeneric for IrqTest {
     }
 }
 
-impl rdrive::intc::Interface for IrqTest {
-    fn irq_enable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
+impl rdrive::driver::intc::Interface for IrqTest {
+    fn irq_enable(&mut self, _irq: IrqId) -> Result<(), rdrive::driver::intc::IntcError> {
         todo!()
     }
 
-    fn irq_disable(&mut self, _irq: IrqId) -> Result<(), rdrive::intc::IntcError> {
+    fn irq_disable(&mut self, _irq: IrqId) -> Result<(), rdrive::driver::intc::IntcError> {
         todo!()
     }
 
@@ -75,31 +79,31 @@ impl rdrive::intc::Interface for IrqTest {
         &mut self,
         _irq: IrqId,
         _priority: usize,
-    ) -> Result<(), rdrive::intc::IntcError> {
+    ) -> Result<(), rdrive::driver::intc::IntcError> {
         todo!()
     }
 
     fn set_trigger(
         &mut self,
         _irq: IrqId,
-        _trigger: rdrive::intc::Trigger,
-    ) -> Result<(), rdrive::intc::IntcError> {
+        _trigger: rdrive::driver::intc::Trigger,
+    ) -> Result<(), rdrive::driver::intc::IntcError> {
         todo!()
     }
 
     fn set_target_cpu(
         &mut self,
         _irq: IrqId,
-        _cpu: rdrive::intc::CpuId,
-    ) -> Result<(), rdrive::intc::IntcError> {
+        _cpu: rdrive::driver::intc::CpuId,
+    ) -> Result<(), rdrive::driver::intc::IntcError> {
         todo!()
     }
 
-    fn cpu_local(&self) -> Option<rdrive::intc::local::Boxed> {
+    fn cpu_local(&self) -> Option<rdrive::driver::intc::local::Boxed> {
         todo!()
     }
 
-    fn parse_dtb_fn(&self) -> Option<rdrive::intc::FuncFdtParseConfig> {
+    fn parse_dtb_fn(&self) -> Option<rdrive::driver::intc::FuncFdtParseConfig> {
         Some(fdt_parse)
     }
 }
@@ -107,16 +111,18 @@ impl rdrive::intc::Interface for IrqTest {
 fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Error>> {
     Ok(IrqConfig {
         irq: 0.into(),
-        trigger: rdrive::intc::Trigger::EdgeBoth,
+        trigger: rdrive::driver::intc::Trigger::EdgeBoth,
         is_private: false,
     })
 }
 
-fn probe_intc(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
     debug!(
         "on_probe: {}, parent intc {:?}",
         fdt.node.name(),
-        desc.irq_parent,
+        plat_dev.descriptor.irq_parent,
     );
-    Ok(HardwareKind::Intc(Box::new(IrqTest {})))
+    plat_dev.register(rdrive::driver::Intc::new(IrqTest {}));
+
+    Ok(())
 }

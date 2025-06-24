@@ -6,7 +6,7 @@ pub use fdt_parser::*;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId, PlatformDevice, device,
+    Descriptor, DeviceId, PlatformDevice, driver,
     error::DriverError,
     get,
     register::{DriverRegisterData, ProbeKind},
@@ -30,8 +30,7 @@ impl FdtInfo<'_> {
     }
 }
 
-pub type FnOnProbe =
-    fn(fdt: FdtInfo<'_>, plat_dev: &mut PlatformDevice) -> Result<(), Box<dyn Error>>;
+pub type FnOnProbe = fn(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>>;
 
 pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
@@ -69,7 +68,7 @@ impl super::EnumSystemTrait for System {
             if let Some(parent) = irq_parent
                 && let Some(raws) = register.node.interrupts()
             {
-                match get::<device::Intc>(parent) {
+                match get::<driver::Intc>(parent) {
                     Ok(intc) => {
                         let parse_fn = { intc.lock().unwrap().parse_dtb_fn() }.ok_or(
                             ProbeError::Fdt("irq parent does not have irq parse fn".to_string()),
@@ -102,7 +101,7 @@ impl super::EnumSystemTrait for System {
                     node: register.node.clone(),
                     phandle_2_device_id: phandle_map,
                 },
-                &mut PlatformDevice::new(descriptor),
+                PlatformDevice::new(descriptor),
             )
             .map_err(ProbeError::OnProbe)?;
 
