@@ -48,6 +48,8 @@ fn main() {
         let g = intc.lock().unwrap();
 
         let t = g.typed_ref::<IrqTest>();
+        debug!("intc: {:?}", g.type_name());
+
         assert!(t.is_some(), "Intc should be [IrqTest]");
     }
 
