@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-pub use as_any::AsAny;
+pub use as_any::{AsAny, Downcast};
 pub use rdif_def::{CpuId, KError, custom_type, irq};
 
 pub mod io;
