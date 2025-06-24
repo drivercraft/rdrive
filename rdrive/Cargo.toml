@@ -17,13 +17,13 @@ spin = "0.10"
 thiserror = {version = "2", default-features = false}
 
 rdif-base = {workspace = true}
-rdif-intc = {version = "0.10", path = "../interface/rdif-intc"}
+rdif-intc = {version = "0.11", path = "../interface/rdif-intc"}
 # rdif-timer = { version = "0.3" }
-rdif-block = {version = "0.4", path = "../interface/rdif-block"}
-rdif-clk = {version = "0.3", path = "../interface/rdif-clk"}
-rdif-power = {version = "0.5", path = "../interface/rdif-power"}
-rdif-serial = {version = "0.3", path = "../interface/rdif-serial"}
-rdif-systick = {version = "0.4", path = "../interface/rdif-systick"}
+rdif-block = {version = "0.5", path = "../interface/rdif-block"}
+rdif-clk = {version = "0.4", path = "../interface/rdif-clk"}
+rdif-power = {version = "0.6", path = "../interface/rdif-power"}
+rdif-serial = {version = "0.4", path = "../interface/rdif-serial"}
+rdif-systick = {version = "0.5", path = "../interface/rdif-systick"}
 
 paste = "1"
 rdrive-macros = {version = "0.4", path = "../rdrive-macros"}
