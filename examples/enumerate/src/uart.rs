@@ -2,9 +2,9 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, HardwareKind, KError, get_dev,
+    driver::{Clk, systick::*},
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
-    systick::*,
+    *,
 };
 
 struct Timer;
@@ -21,8 +21,8 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    debug!("{desc:?}");
+fn probe(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+    debug!("{:?}", dev.descriptor);
 
     let clk = fdt.find_clk_by_name("apb_pclk").unwrap();
 
@@ -32,9 +32,11 @@ fn probe(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Er
         .phandle_to_device_id(clk.node.phandle().unwrap())
         .unwrap();
 
-    let _clk_dev = get_dev!(id, Clk).unwrap();
+    let _clk_dev = get::<Clk>(id).unwrap();
 
-    Ok(HardwareKind::Systick(Box::new(Timer {})))
+    dev.register(Timer {});
+
+    Ok(())
 }
 
 impl DriverGeneric for Timer {

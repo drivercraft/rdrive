@@ -10,13 +10,17 @@ custom_id!(DriverId, u64);
 
 #[derive(Default, Debug, Clone)]
 pub struct Descriptor {
-    pub device_id: DeviceId,
+    pub(crate) device_id: DeviceId,
     pub name: &'static str,
     pub irq_parent: Option<DeviceId>,
     pub irqs: Vec<IrqConfig>,
 }
 
-impl Descriptor {}
+impl Descriptor {
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+}
 
 static ITER: AtomicU64 = AtomicU64::new(0);
 

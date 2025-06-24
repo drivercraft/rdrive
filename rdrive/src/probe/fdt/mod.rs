@@ -6,11 +6,14 @@ pub use fdt_parser::*;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId, HardwareKind, get_dev,
-    register::{DriverRegisterData, ProbeKind, RegisterId},
+    Descriptor, DeviceId,
+    driver::{self, PlatformDevice},
+    error::DriverError,
+    get,
+    register::{DriverRegisterData, ProbeKind},
 };
 
-use super::{ProbeError, ProbedDevice, UnprobedDevice};
+use super::{ProbeError, ToProbeFunc};
 
 #[derive(Clone)]
 pub struct FdtInfo<'a> {
@@ -28,47 +31,20 @@ impl FdtInfo<'_> {
     }
 }
 
-pub type FnOnProbe =
-    fn(fdt: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>>;
+pub type FnOnProbe = fn(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>>;
 
-pub struct ProbeFunc {
+pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
     fdt_addr: NonNull<u8>,
 }
 
-unsafe impl Send for ProbeFunc {}
+unsafe impl Send for System {}
 
-impl ProbeFunc {
-    pub fn new(fdt_addr: NonNull<u8>) -> Self {
-        Self {
-            phandle_2_device_id: Default::default(),
-            fdt_addr,
-        }
-    }
-
-    pub fn init(&mut self) -> Result<(), ProbeError> {
-        let fdt = Fdt::from_ptr(self.fdt_addr)?;
-        for node in fdt.all_nodes() {
-            if let Some(phandle) = node.phandle() {
-                self.phandle_2_device_id.insert(phandle, DeviceId::new());
-            }
-        }
-
-        Ok(())
-    }
-
-    fn new_device_id(&self, phandle: Option<Phandle>) -> DeviceId {
-        if let Some(phandle) = phandle {
-            self.phandle_2_device_id[&phandle]
-        } else {
-            DeviceId::new()
-        }
-    }
-
-    pub fn to_unprobed(
+impl super::EnumSystemTrait for System {
+    fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<UnprobedDevice>, ProbeError> {
+    ) -> Result<Option<ToProbeFunc>, ProbeError> {
         let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
         let register = match self.get_fdt_register(register, &fdt) {
             Some(v) => v,
@@ -90,27 +66,26 @@ impl ProbeFunc {
             debug!("Probe [{}]->[{}]", register.node.name, register.name);
             let mut irqs = Vec::new();
 
-            if let Some(parent) = irq_parent {
-                if let Some(raws) = register.node.interrupts() {
-                    match get_dev!(parent, Intc) {
-                        Some(intc) => {
-                            let parse_fn = { intc.spin_try_borrow_by(0.into())?.parse_dtb_fn() }
-                                .ok_or(ProbeError::Fdt(
-                                    "irq parent does not have irq parse fn".to_string(),
-                                ))?;
+            if let Some(parent) = irq_parent
+                && let Some(raws) = register.node.interrupts()
+            {
+                match get::<driver::Intc>(parent) {
+                    Ok(intc) => {
+                        let parse_fn = { intc.lock().unwrap().parse_dtb_fn() }.ok_or(
+                            ProbeError::Fdt("irq parent does not have irq parse fn".to_string()),
+                        )?;
 
-                            for raw in raws {
-                                if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
-                                    irqs.push(irq);
-                                }
+                        for raw in raws {
+                            if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
+                                irqs.push(irq);
                             }
                         }
-                        None => {
-                            warn!(
-                                "[{}] parent irq driver does not exist, can not parse irq config",
-                                register.name
-                            );
-                        }
+                    }
+                    Err(_) => {
+                        warn!(
+                            "[{}] parent irq driver does not exist, can not parse irq config",
+                            register.name
+                        );
                     }
                 }
             }
@@ -122,24 +97,43 @@ impl ProbeFunc {
                 irqs: irqs.clone(),
             };
 
-            let dev = (register.on_probe)(
+            (register.on_probe)(
                 FdtInfo {
                     node: register.node.clone(),
                     phandle_2_device_id: phandle_map,
                 },
-                &descriptor,
+                PlatformDevice::new(descriptor),
             )
             .map_err(ProbeError::OnProbe)?;
 
-            let dev = dev.to_device(descriptor.clone());
-            Ok(ProbedDevice {
-                register_id: register.register_id,
-                descriptor,
-                dev,
-            })
+            Ok(())
         };
 
         Ok(Some(Box::new(probe_fn)))
+    }
+}
+
+impl System {
+    pub fn new(fdt_addr: NonNull<u8>) -> Result<Self, DriverError> {
+        let fdt = Fdt::from_ptr(fdt_addr)?;
+        let mut phandle_2_device_id = BTreeMap::new();
+        for node in fdt.all_nodes() {
+            if let Some(phandle) = node.phandle() {
+                phandle_2_device_id.insert(phandle, DeviceId::new());
+            }
+        }
+        Ok(Self {
+            phandle_2_device_id,
+            fdt_addr,
+        })
+    }
+
+    fn new_device_id(&self, phandle: Option<Phandle>) -> DeviceId {
+        if let Some(phandle) = phandle {
+            self.phandle_2_device_id[&phandle]
+        } else {
+            DeviceId::new()
+        }
     }
 
     fn get_fdt_register(
@@ -163,7 +157,6 @@ impl ProbeFunc {
                         for campatible in &node_compatibles {
                             if compatibles.contains(campatible) {
                                 return Some(ProbeFdtInfo {
-                                    register_id: register.id,
                                     name: register.register.name,
                                     node: node.clone(),
                                     on_probe,
@@ -179,7 +172,6 @@ impl ProbeFunc {
 }
 
 struct ProbeFdtInfo {
-    register_id: RegisterId,
     name: &'static str,
     node: Node<'static>,
     on_probe: FnOnProbe,

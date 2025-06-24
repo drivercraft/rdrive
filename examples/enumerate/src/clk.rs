@@ -2,10 +2,9 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, HardwareKind, KError,
-    clk::*,
-    module_driver,
+    driver::clk::*,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
+    *,
 };
 
 struct Clock {
@@ -24,8 +23,10 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: FdtInfo<'_>, _desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    Ok(HardwareKind::Clk(Box::new(Clock { rate: 0 })))
+fn probe(_node: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+    plat_dev.register(Clk::new(Clock { rate: 0 }));
+
+    Ok(())
 }
 
 impl DriverGeneric for Clock {
@@ -63,6 +64,6 @@ module_driver!(
         }],
 );
 
-fn probe_clk(_fdt: FdtInfo<'_>, _desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
+fn probe_clk(_fdt: FdtInfo<'_>, _desc: PlatformDevice) -> Result<(), Box<dyn Error>> {
     todo!()
 }

@@ -1,28 +1,29 @@
 [package]
-name = "rdrive"
-version = "0.13.0"
-edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
-repository.workspace = true
-license = "MIT"
-description = "A dyn driver manager."
-keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
+description = "A dyn driver manager."
+edition.workspace = true
+keywords = ["os", "driver"]
+license = "MIT"
+name = "rdrive"
+repository.workspace = true
+version = "0.13.0"
 
 [dependencies]
-spin = "0.10"
+enum_dispatch = "0.3"
 fdt-parser = "0.4.16"
-thiserror = { version = "2", default-features = false }
 log = "0.4"
+spin = "0.10"
+thiserror = {version = "2", default-features = false}
 
-rdif-base = { workspace = true }
-rdif-intc = { version = "0.10" }
+rdif-base = {workspace = true}
+rdif-intc = {version = "0.10", path = "../interface/rdif-intc"}
 # rdif-timer = { version = "0.3" }
-rdif-power = { version = "0.5" }
-rdif-systick = { version = "0.4" }
-rdif-serial = { version = "0.3" }
-rdif-block = { version = "0.4" }
-rdif-clk = { version = "0.3" }
+rdif-block = {version = "0.4", path = "../interface/rdif-block"}
+rdif-clk = {version = "0.3", path = "../interface/rdif-clk"}
+rdif-power = {version = "0.5", path = "../interface/rdif-power"}
+rdif-serial = {version = "0.3", path = "../interface/rdif-serial"}
+rdif-systick = {version = "0.4", path = "../interface/rdif-systick"}
 
-rdrive-macros = { version = "0.4", path = "../rdrive-macros" }
 paste = "1"
+rdrive-macros = {version = "0.4", path = "../rdrive-macros"}

@@ -2,9 +2,10 @@ use std::error::Error;
 
 use log::debug;
 use rdrive::{
-    Descriptor, HardwareKind, KError, get_dev,
+    PlatformDevice,
+    driver::{Intc, systick::*},
+    get,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
-    systick::*,
 };
 
 struct Timer;
@@ -21,14 +22,16 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: FdtInfo<'_>, desc: &Descriptor) -> Result<HardwareKind, Box<dyn Error>> {
-    if let Some(parent) = desc.irq_parent {
-        if let Some(intc) = get_dev!(parent, Intc) {
-            debug!("intc : {}", intc.descriptor.name);
-        }
+fn probe(_node: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+    if let Some(parent) = dev.descriptor.irq_parent
+        && let Ok(intc) = get::<Intc>(parent)
+    {
+        debug!("intc : {}", intc.descriptor().name);
     }
 
-    Ok(HardwareKind::Systick(Box::new(Timer {})))
+    dev.register_systick(Timer {});
+
+    Ok(())
 }
 
 impl DriverGeneric for Timer {
