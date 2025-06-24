@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_device_container() {
         let mut container = DeviceContainer::default();
-        let desc = Descriptor::default();
+        let desc = Descriptor::new();
         let id = desc.device_id;
         container.insert(desc, driver::Empty);
         let weak = container.get_typed::<driver::Empty>(id).unwrap();
@@ -133,8 +133,8 @@ mod tests {
     #[test]
     fn test_get_one() {
         let mut container = DeviceContainer::default();
-        container.insert(Descriptor::default(), Empty);
-        container.insert(Descriptor::default(), DeviceTest { opened: false });
+        container.insert(Descriptor::new(), Empty);
+        container.insert(Descriptor::new(), DeviceTest { opened: false });
 
         let weak = container.get_one::<Empty>().unwrap();
         {
@@ -147,9 +147,9 @@ mod tests {
     #[test]
     fn test_devices() {
         let mut container = DeviceContainer::default();
-        container.insert(Descriptor::default(), Empty);
-        container.insert(Descriptor::default(), Empty);
-        container.insert(Descriptor::default(), DeviceTest { opened: false });
+        container.insert(Descriptor::new(), Empty);
+        container.insert(Descriptor::new(), Empty);
+        container.insert(Descriptor::new(), DeviceTest { opened: false });
         let devices = container.devices::<Empty>();
         assert_eq!(devices.len(), 2);
     }

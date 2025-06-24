@@ -17,6 +17,15 @@ pub struct Descriptor {
 }
 
 impl Descriptor {
+    pub fn new() -> Self {
+        Self {
+            device_id: DeviceId::new(),
+            ..Default::default()
+        }
+    }
+}
+
+impl Descriptor {
     pub fn device_id(&self) -> DeviceId {
         self.device_id
     }
