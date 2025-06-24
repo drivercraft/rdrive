@@ -35,7 +35,6 @@ impl PlatformDevice {
             manager.dev_container.insert(self.descriptor, driver);
         });
     }
-
 }
 
 def_driver_rdif!(Intc);

@@ -9,6 +9,7 @@ macro_rules! def_driver {
         paste::paste! {
             pub mod [<$name:lower>]{
                 pub use $($u),+::*;
+                use rdif_base::AsAny;
 
                 pub struct $name(alloc::boxed::Box<dyn $tr>);
 
