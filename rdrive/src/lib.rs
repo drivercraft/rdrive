@@ -21,6 +21,7 @@ pub mod probe;
 pub mod register;
 
 pub use descriptor::*;
+pub use driver::PlatformDevice;
 pub use lock::*;
 pub use manager::*;
 pub use osal::*;
@@ -133,26 +134,6 @@ pub fn get_raw(id: DeviceId) -> Option<DeviceWeak> {
 
 pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
     read(|manager| manager.dev_container.get_one())
-}
-
-pub struct PlatformDevice {
-    pub descriptor: Descriptor,
-}
-
-impl PlatformDevice {
-    pub(crate) fn new(descriptor: Descriptor) -> Self {
-        Self { descriptor }
-    }
-
-    /// Register a device to the driver manager.
-    ///
-    /// # Panics
-    /// This method will panic if the device with the same ID is already added
-    pub fn register<T: DriverGeneric>(self, driver: T) {
-        edit(|manager| {
-            manager.dev_container.insert(self.descriptor, driver);
-        });
-    }
 }
 
 #[macro_export]

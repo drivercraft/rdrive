@@ -36,7 +36,7 @@ pub(crate) trait EnumSystemTrait {
     fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<UnprobedDevice>, ProbeError>;
+    ) -> Result<Option<ToProbeFunc>, ProbeError>;
 }
 
 impl EnumSystem {
@@ -47,4 +47,4 @@ impl EnumSystem {
     }
 }
 
-pub(crate) type UnprobedDevice = Box<dyn FnOnce() -> Result<(), ProbeError>>;
+pub(crate) type ToProbeFunc = Box<dyn FnOnce() -> Result<(), ProbeError>>;

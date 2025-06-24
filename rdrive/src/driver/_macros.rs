@@ -49,6 +49,13 @@ macro_rules! def_driver {
                         self.0.as_mut()
                     }
                 }
+
+                impl $crate::PlatformDevice {
+
+                    pub fn [<register_ $name:lower>]<T: $tr>(self, driver: T) {
+                        self.register($crate::driver::$name::new(driver));
+                    }
+                }
             }
             pub use [<$name:lower>]::$name;
         }

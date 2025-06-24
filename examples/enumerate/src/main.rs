@@ -122,7 +122,7 @@ fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn 
         fdt.node.name(),
         plat_dev.descriptor.irq_parent,
     );
-    plat_dev.register(rdrive::driver::Intc::new(IrqTest {}));
+    plat_dev.register_intc(IrqTest {});
 
     Ok(())
 }

@@ -6,13 +6,14 @@ pub use fdt_parser::*;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId, PlatformDevice, driver,
+    Descriptor, DeviceId,
+    driver::{self, PlatformDevice},
     error::DriverError,
     get,
     register::{DriverRegisterData, ProbeKind},
 };
 
-use super::{ProbeError, UnprobedDevice};
+use super::{ProbeError, ToProbeFunc};
 
 #[derive(Clone)]
 pub struct FdtInfo<'a> {
@@ -43,7 +44,7 @@ impl super::EnumSystemTrait for System {
     fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<UnprobedDevice>, ProbeError> {
+    ) -> Result<Option<ToProbeFunc>, ProbeError> {
         let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
         let register = match self.get_fdt_register(register, &fdt) {
             Some(v) => v,

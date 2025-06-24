@@ -29,7 +29,7 @@ fn probe(_node: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), Box<dyn Error>> 
         debug!("intc : {}", intc.descriptor().name);
     }
 
-    dev.register(Systick::new(Timer {}));
+    dev.register_systick(Timer {});
 
     Ok(())
 }

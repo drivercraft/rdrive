@@ -4,7 +4,7 @@ use rdif_base::DriverGeneric;
 use crate::{
     Descriptor, Device, DeviceId, DeviceOwner, DeviceWeak, GetDeviceError, Platform,
     error::DriverError,
-    probe::{EnumSystem, EnumSystemTrait, ProbeError, UnprobedDevice},
+    probe::{EnumSystem, EnumSystemTrait, ProbeError, ToProbeFunc},
     register::{DriverRegisterData, RegisterContainer},
 };
 
@@ -26,7 +26,7 @@ impl Manager {
     pub fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<UnprobedDevice>, ProbeError> {
+    ) -> Result<Option<ToProbeFunc>, ProbeError> {
         let unprobed = self.enum_system.to_unprobed(register)?;
         if unprobed.is_some() {
             self.registers.set_probed(register.id);
