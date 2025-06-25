@@ -1,4 +1,9 @@
-use alloc::{boxed::Box, format, string::String};
+use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::error::Error;
 use enum_dispatch::enum_dispatch;
 
@@ -15,7 +20,7 @@ pub enum ProbeError {
     #[error("fdt parse error: {0}")]
     Fdt(String),
     #[error("on probe error: {0}")]
-    OnProbe(Box<dyn Error>),
+    OnProbe(#[from] OnProbeError),
     #[error("open device fail")]
     OpenFail(#[from] rdif_base::KError),
 }
@@ -23,6 +28,30 @@ pub enum ProbeError {
 impl From<FdtError<'_>> for ProbeError {
     fn from(value: FdtError) -> Self {
         Self::Fdt(format!("{value:?}"))
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum OnProbeError {
+    #[error("probe not match")]
+    NotMatch,
+    #[error("kerror: {0}")]
+    KError(#[from] rdif_base::KError),
+    #[error("other error: {0}")]
+    Other(#[from] Box<dyn Error>),
+    #[error("fdt parse error: {0}")]
+    Fdt(String),
+}
+
+impl From<FdtError<'_>> for OnProbeError {
+    fn from(value: FdtError) -> Self {
+        Self::Fdt(format!("{value:?}"))
+    }
+}
+
+impl OnProbeError {
+    pub fn other(msg: impl AsRef<str>) -> Self {
+        Self::Other(msg.as_ref().to_string().into())
     }
 }
 
@@ -36,7 +65,7 @@ pub(crate) trait EnumSystemTrait {
     fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<ToProbeFunc>, ProbeError>;
+    ) -> Result<Vec<ToProbeFunc>, ProbeError>;
 }
 
 impl EnumSystem {
@@ -47,4 +76,4 @@ impl EnumSystem {
     }
 }
 
-pub(crate) type ToProbeFunc = Box<dyn FnOnce() -> Result<(), ProbeError>>;
+pub(crate) type ToProbeFunc = Box<dyn FnOnce() -> Result<(), OnProbeError>>;

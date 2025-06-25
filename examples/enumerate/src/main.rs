@@ -5,9 +5,11 @@ use std::{error::Error, ptr::NonNull};
 use log::debug;
 use rdrive::{
     IrqConfig, IrqId, KError, PlatformDevice, driver, get_list,
+    probe::OnProbeError,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
 
+pub mod blk;
 pub mod clk;
 pub mod timer;
 pub mod uart;
@@ -38,6 +40,7 @@ fn main() {
     rdrive::register_add(timer::register());
     rdrive::register_add(clk::register());
     rdrive::register_add(uart::register());
+    rdrive::register_add(blk::register());
 
     rdrive::probe_pre_kernel().unwrap();
 
@@ -118,7 +121,7 @@ fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, Box<dyn Err
     })
 }
 
-fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeError> {
     debug!(
         "on_probe: {}, parent intc {:?}",
         fdt.node.name(),

@@ -1,8 +1,7 @@
-use std::error::Error;
-
 use log::debug;
 use rdrive::{
     driver::{Clk, systick::*},
+    probe::OnProbeError,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
     *,
 };
@@ -21,7 +20,7 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+fn probe(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), OnProbeError> {
     debug!("{:?}", dev.descriptor);
 
     let clk = fdt.find_clk_by_name("apb_pclk").unwrap();

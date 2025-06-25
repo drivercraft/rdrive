@@ -1,10 +1,9 @@
-use std::error::Error;
-
 use log::debug;
 use rdrive::{
     PlatformDevice,
     driver::{Intc, systick::*},
     get,
+    probe::OnProbeError,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
 
@@ -22,7 +21,7 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+fn probe(_node: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), OnProbeError> {
     if let Some(parent) = dev.descriptor.irq_parent
         && let Ok(intc) = get::<Intc>(parent)
     {

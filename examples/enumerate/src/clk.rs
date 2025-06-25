@@ -1,8 +1,7 @@
-use std::error::Error;
-
 use log::debug;
 use rdrive::{
     driver::clk::*,
+    probe::OnProbeError,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
     *,
 };
@@ -23,7 +22,7 @@ pub fn register() -> DriverRegister {
     }
 }
 
-fn probe(_node: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), Box<dyn Error>> {
+fn probe(_node: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeError> {
     plat_dev.register(Clk::new(Clock { rate: 0 }));
 
     Ok(())
@@ -64,6 +63,6 @@ module_driver!(
         }],
 );
 
-fn probe_clk(_fdt: FdtInfo<'_>, _desc: PlatformDevice) -> Result<(), Box<dyn Error>> {
+fn probe_clk(_fdt: FdtInfo<'_>, _desc: PlatformDevice) -> Result<(), OnProbeError> {
     todo!()
 }

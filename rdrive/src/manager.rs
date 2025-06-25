@@ -26,11 +26,8 @@ impl Manager {
     pub fn to_unprobed(
         &mut self,
         register: &DriverRegisterData,
-    ) -> Result<Option<ToProbeFunc>, ProbeError> {
+    ) -> Result<Vec<ToProbeFunc>, ProbeError> {
         let unprobed = self.enum_system.to_unprobed(register)?;
-        if unprobed.is_some() {
-            self.registers.set_probed(register.id);
-        }
         Ok(unprobed)
     }
 

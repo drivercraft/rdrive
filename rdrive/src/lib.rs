@@ -6,6 +6,7 @@ extern crate alloc;
 use core::ptr::NonNull;
 pub use fdt_parser::Phandle;
 
+use log::warn;
 use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
@@ -29,7 +30,7 @@ pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;
 
-use crate::error::DriverError;
+use crate::{error::DriverError, probe::OnProbeError};
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 
@@ -88,30 +89,38 @@ fn probe_with<'a>(
     registers: impl Iterator<Item = &'a DriverRegisterData>,
     stop_if_fail: bool,
 ) -> Result<(), ProbeError> {
-    macro_rules! handle_error {
-        ($e: expr, $m: expr) => {
-            if stop_if_fail {
-                $e?
-            } else {
-                match $e {
-                    Ok(v) => v,
-                    Err(e) => {
-                        log::warn!("{}: {}", $m, e);
-                        continue;
-                    }
+    for one in registers {
+        match probe_one(one) {
+            Ok(_) => {} // Successfully probed, move to the next
+            Err(e) => {
+                if stop_if_fail {
+                    return Err(e);
+                } else {
+                    warn!("Probe failed for [{}]: {}", one.register.name, e);
                 }
             }
-        };
-    }
-
-    for one in registers {
-        let to_probe = edit(|manager| manager.to_unprobed(one))?;
-
-        if let Some(to_probe) = to_probe {
-            handle_error!(to_probe(), "probe fail");
         }
     }
 
+    Ok(())
+}
+
+fn probe_one(one: &DriverRegisterData) -> Result<(), ProbeError> {
+    let to_probe = edit(|manager| manager.to_unprobed(one))?;
+    for to_probe in to_probe {
+        match to_probe() {
+            Ok(_) => {
+                edit(|manager| manager.registers.set_probed(one.id));
+                return Ok(());
+            }
+            Err(OnProbeError::NotMatch) => {
+                continue; // Not a match, skip to the next probe
+            }
+            Err(e) => {
+                return Err(e.into());
+            }
+        }
+    }
     Ok(())
 }
 
