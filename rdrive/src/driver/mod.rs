@@ -42,3 +42,4 @@ def_driver_rdif!(Clk);
 def_driver_rdif!(Power);
 def_driver_rdif!(Systick);
 def_driver_rdif!(Serial);
+def_driver_rdif!(Block);
