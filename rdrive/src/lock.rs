@@ -141,6 +141,9 @@ pub struct Device<T> {
     ptr: *mut T,
 }
 
+unsafe impl<T> Send for Device<T> {}
+unsafe impl<T> Sync for Device<T> {}
+
 impl<T: DriverGeneric> Device<T> {
     fn new(lock: &Arc<LockInner>) -> Result<Self, GetDeviceError> {
         let ptr = match unsafe { &*lock.ptr }.downcast_ref::<T>() {
