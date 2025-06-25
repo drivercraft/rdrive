@@ -166,4 +166,68 @@ mod tests {
             assert!(f.is_none(), "Expected no parse function for empty device");
         }
     }
+
+    struct IrqTest {}
+
+    impl crate::DriverGeneric for IrqTest {
+        fn open(&mut self) -> Result<(), rdif_clk::KError> {
+            Ok(())
+        }
+
+        fn close(&mut self) -> Result<(), rdif_clk::KError> {
+            Ok(())
+        }
+    }
+
+    impl driver::intc::Interface for IrqTest {
+        fn irq_enable(&mut self, _irq: rdif_intc::IrqId) -> Result<(), rdif_intc::IntcError> {
+            todo!()
+        }
+
+        fn irq_disable(&mut self, _irq: rdif_intc::IrqId) -> Result<(), rdif_intc::IntcError> {
+            todo!()
+        }
+
+        fn set_priority(
+            &mut self,
+            _irq: rdif_intc::IrqId,
+            _priority: usize,
+        ) -> Result<(), rdif_intc::IntcError> {
+            todo!()
+        }
+
+        fn set_trigger(
+            &mut self,
+            _irq: rdif_intc::IrqId,
+            _trigger: rdif_intc::Trigger,
+        ) -> Result<(), rdif_intc::IntcError> {
+            todo!()
+        }
+
+        fn set_target_cpu(
+            &mut self,
+            _irq: rdif_intc::IrqId,
+            _cpu: rdif_base::CpuId,
+        ) -> Result<(), rdif_intc::IntcError> {
+            todo!()
+        }
+
+        fn cpu_local(&self) -> Option<rdif_intc::local::Boxed> {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn test_inner_type() {
+        let mut container = DeviceContainer::default();
+        let desc = Descriptor::new();
+        container.insert(desc, driver::Intc::new(IrqTest {}));
+
+        let weak = container.get_one::<driver::Intc>().unwrap();
+        {
+            let device = weak.lock().unwrap();
+            let intc = device.typed_ref::<IrqTest>();
+            assert!(intc.is_some(), "Expected to find IrqTest device");
+        }
+    }
 }

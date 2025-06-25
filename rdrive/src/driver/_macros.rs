@@ -9,7 +9,8 @@ macro_rules! def_driver {
         paste::paste! {
             pub mod [<$name:lower>]{
                 pub use $($u),+::*;
-               
+                use rdif_base::AsAny;
+
                 pub struct $name(alloc::boxed::Box<dyn $tr>);
 
                 impl $name {
@@ -18,11 +19,11 @@ macro_rules! def_driver {
                     }
 
                     pub fn typed_ref<T: $tr>(&self) -> Option<&T> {
-                        self.0.as_any().downcast_ref::<T>()
+                        <dyn $tr as AsAny>::as_any(self.0.as_ref()).downcast_ref()
                     }
 
                     pub fn typed_mut<T: $tr>(&mut self) -> Option<&mut T> {
-                        self.0.as_any_mut().downcast_mut::<T>()
+                        <dyn $tr as AsAny>::as_any_mut(self.0.as_mut()).downcast_mut()
                     }
                 }
 

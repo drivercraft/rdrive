@@ -6,8 +6,7 @@ pub use fdt_parser::*;
 pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId,
-    driver::{self, PlatformDevice},
+    Descriptor, DeviceId, PlatformDevice, driver,
     error::DriverError,
     get,
     register::{DriverRegisterData, ProbeKind},
@@ -21,12 +20,12 @@ pub struct FdtInfo<'a> {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
 }
 
-impl FdtInfo<'_> {
+impl<'a> FdtInfo<'a> {
     pub fn phandle_to_device_id(&self, phandle: Phandle) -> Option<DeviceId> {
         self.phandle_2_device_id.get(&phandle).copied()
     }
 
-    pub fn find_clk_by_name(&self, name: &str) -> Option<ClockRef> {
+    pub fn find_clk_by_name(&'a self, name: &str) -> Option<ClockRef<'a>> {
         self.node.clocks().find(|clock| clock.name == Some(name))
     }
 }
