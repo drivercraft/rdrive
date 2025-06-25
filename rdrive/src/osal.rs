@@ -25,7 +25,7 @@ struct OsalImplEmplty;
 
 impl Osal for OsalImplEmplty {
     fn get_pid(&self) -> Pid {
-        Pid::default()
+        Pid::INVALID.into()
     }
 }
 

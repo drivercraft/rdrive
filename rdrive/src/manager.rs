@@ -2,7 +2,7 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use rdif_base::DriverGeneric;
 
 use crate::{
-    Descriptor, Device, DeviceId, DeviceOwner, DeviceWeak, GetDeviceError, Platform,
+    Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError, Platform,
     error::DriverError,
     probe::{EnumSystem, EnumSystemTrait, ProbeError, ToProbeFunc},
     register::{DriverRegisterData, RegisterContainer},
@@ -55,17 +55,12 @@ impl DeviceContainer {
     pub fn get_typed<T: DriverGeneric>(&self, id: DeviceId) -> Result<Device<T>, GetDeviceError> {
         let dev = self.devices.get(&id).ok_or(GetDeviceError::NotFound)?;
 
-        dev.weak_typed()
-    }
-
-    pub fn get(&self, id: DeviceId) -> Option<DeviceWeak> {
-        let dev = self.devices.get(&id)?;
-        Some(dev.weak())
+        dev.weak()
     }
 
     pub fn get_one<T: DriverGeneric>(&self) -> Option<Device<T>> {
         for dev in self.devices.values() {
-            if let Ok(val) = dev.weak_typed::<T>() {
+            if let Ok(val) = dev.weak::<T>() {
                 return Some(val);
             }
         }
@@ -75,7 +70,7 @@ impl DeviceContainer {
     pub fn devices<T: DriverGeneric>(&self) -> Vec<Device<T>> {
         let mut result = Vec::new();
         for dev in self.devices.values() {
-            if let Ok(val) = dev.weak_typed::<T>() {
+            if let Ok(val) = dev.weak::<T>() {
                 result.push(val);
             }
         }

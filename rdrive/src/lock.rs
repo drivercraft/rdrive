@@ -1,8 +1,6 @@
 use core::{
     any::Any,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
-    ptr::null_mut,
     sync::atomic::{AtomicI64, Ordering},
 };
 
@@ -25,15 +23,8 @@ impl DeviceOwner {
         }
     }
 
-    pub fn weak_typed<T: DriverGeneric>(&self) -> Result<Device<T>, GetDeviceError> {
-        if !self.is::<T>() {
-            return Err(GetDeviceError::TypeNotMatch);
-        }
-        Ok(Device::new(DeviceWeak::new(&self.lock)))
-    }
-
-    pub fn weak(&self) -> DeviceWeak {
-        DeviceWeak::new(&self.lock)
+    pub fn weak<T: DriverGeneric>(&self) -> Result<Device<T>, GetDeviceError> {
+        Device::new(&self.lock)
     }
 
     pub fn is<T: DriverGeneric>(&self) -> bool {
@@ -68,18 +59,7 @@ impl LockInner {
         }
     }
 
-    fn is<T: DriverGeneric>(&self) -> bool {
-        unsafe { &*self.ptr }.is::<T>()
-    }
-
-    pub fn try_lock<T: DriverGeneric>(
-        self: &Arc<Self>,
-        pid: Pid,
-        check: bool,
-    ) -> Result<DeviceGuard<T>, GetDeviceError> {
-        if check && !self.is::<T>() {
-            return Err(GetDeviceError::TypeNotMatch);
-        }
+    pub fn try_lock(self: &Arc<Self>, pid: Pid) -> Result<(), GetDeviceError> {
         let mut pid = pid;
         if pid.is_not_set() {
             pid = Pid::INVALID.into();
@@ -93,11 +73,7 @@ impl LockInner {
             Ordering::Acquire,
             Ordering::Relaxed,
         ) {
-            Ok(_) => Ok(DeviceGuard {
-                lock: self.clone(),
-                mark: PhantomData,
-                descriptor: &self.descriptor as *const Descriptor as *mut Descriptor,
-            }),
+            Ok(_) => Ok(()),
             Err(old) => {
                 if old as usize == Pid::INVALID {
                     Err(GetDeviceError::UsedByUnknown)
@@ -109,15 +85,14 @@ impl LockInner {
         }
     }
 
-    pub fn lock<T: DriverGeneric>(self: &Arc<Self>) -> Result<DeviceGuard<T>, GetDeviceError> {
-        if !self.is::<T>() {
-            return Err(GetDeviceError::TypeNotMatch);
-        }
+    pub fn lock(self: &Arc<Self>) -> Result<(), GetDeviceError> {
         let pid = get_pid();
         loop {
-            match self.try_lock(pid, false) {
+            match self.try_lock(pid) {
                 Ok(guard) => return Ok(guard),
-                Err(GetDeviceError::UsedByOthers(_)) => continue,
+                Err(GetDeviceError::UsedByOthers(_)) | Err(GetDeviceError::UsedByUnknown) => {
+                    continue;
+                }
                 Err(e) => return Err(e),
             }
         }
@@ -126,8 +101,7 @@ impl LockInner {
 
 pub struct DeviceGuard<T: DriverGeneric> {
     lock: Arc<LockInner>,
-    descriptor: *mut Descriptor,
-    mark: PhantomData<T>,
+    ptr: *mut T,
 }
 
 unsafe impl<T: DriverGeneric> Send for DeviceGuard<T> {}
@@ -144,108 +118,75 @@ impl<T: DriverGeneric> Deref for DeviceGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe {
-            let device = &*self.lock.ptr;
-            device.downcast_ref().expect("DeviceGuard type mismatch")
-        }
+        unsafe { &*self.ptr }
     }
 }
 
 impl<T: DriverGeneric> DerefMut for DeviceGuard<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe {
-            let device = &mut *self.lock.ptr;
-            device.downcast_mut().expect("DeviceGuard type mismatch")
-        }
+        unsafe { &mut *self.ptr }
     }
 }
 
 impl<T: DriverGeneric> DeviceGuard<T> {
     pub fn descriptor(&self) -> &Descriptor {
-        unsafe { &*self.descriptor }
+        &self.lock.descriptor
     }
 }
 
 #[derive(Clone)]
-pub struct DeviceWeak {
+pub struct Device<T> {
     lock: Weak<LockInner>,
     descriptor: Descriptor,
+    ptr: *mut T,
 }
 
-impl DeviceWeak {
-    fn new(lock: &Arc<LockInner>) -> Self {
-        Self {
+impl<T: DriverGeneric> Device<T> {
+    fn new(lock: &Arc<LockInner>) -> Result<Self, GetDeviceError> {
+        let ptr = match unsafe { &*lock.ptr }.downcast_ref::<T>() {
+            Some(v) => v as *const T as *mut T,
+            None => return Err(GetDeviceError::TypeNotMatch),
+        };
+
+        Ok(Self {
             lock: Arc::downgrade(lock),
             descriptor: lock.descriptor.clone(),
-        }
+            ptr,
+        })
+    }
+
+    pub fn lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
+        let lock = self.lock.upgrade().ok_or(GetDeviceError::DeviceReleased)?;
+        lock.lock()?;
+
+        Ok(DeviceGuard {
+            lock,
+            ptr: self.ptr,
+        })
+    }
+    pub fn try_lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
+        let lock = self.lock.upgrade().ok_or(GetDeviceError::DeviceReleased)?;
+        lock.try_lock(get_pid())?;
+
+        Ok(DeviceGuard {
+            lock,
+            ptr: self.ptr,
+        })
     }
 
     pub fn descriptor(&self) -> &Descriptor {
         &self.descriptor
     }
 
-    pub fn try_lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
-        self.lock
-            .upgrade()
-            .ok_or(GetDeviceError::DeviceReleased)?
-            .try_lock(get_pid(), true)
-    }
-    pub fn lock<T: DriverGeneric>(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
-        self.lock
-            .upgrade()
-            .ok_or(GetDeviceError::DeviceReleased)?
-            .lock()
-    }
-
     /// 强制获取设备
     ///
     /// # Safety
     /// 一般用于中断处理中
-    pub unsafe fn force_use<T: DriverGeneric>(&self) -> *mut T {
-        let lock = match self.lock.upgrade() {
-            Some(v) => v,
-            None => return null_mut(),
-        };
-
-        let ptr = match unsafe { &mut *lock.ptr }.downcast_mut() {
-            Some(v) => v,
-            None => return null_mut(),
-        };
-        ptr as *mut T
-    }
-}
-
-#[derive(Clone)]
-pub struct Device<T> {
-    pub(crate) dev: DeviceWeak,
-    mark: PhantomData<T>,
-}
-
-impl<T: DriverGeneric> Device<T> {
-    pub(crate) fn new(dev: DeviceWeak) -> Self {
-        Self {
-            dev,
-            mark: PhantomData,
+    pub unsafe fn force_use(&self) -> Result<*mut T, GetDeviceError> {
+        if self.lock.upgrade().is_none() {
+            return Err(GetDeviceError::DeviceReleased);
         }
-    }
-
-    pub fn lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
-        self.dev.lock()
-    }
-    pub fn try_lock(&self) -> Result<DeviceGuard<T>, GetDeviceError> {
-        self.dev.try_lock()
-    }
-
-    pub fn descriptor(&self) -> &Descriptor {
-        self.dev.descriptor()
-    }
-
-    /// 强制获取设备
-    ///
-    /// # Safety
-    /// 一般用于中断处理中
-    pub unsafe fn force_use(&self) -> *mut T {
-        unsafe { self.dev.force_use() }
+        Ok(self.ptr)
     }
 }
 

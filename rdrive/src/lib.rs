@@ -128,10 +128,6 @@ pub fn get<T: DriverGeneric>(id: DeviceId) -> Result<Device<T>, GetDeviceError> 
     read(|manager| manager.dev_container.get_typed(id))
 }
 
-pub fn get_raw(id: DeviceId) -> Option<DeviceWeak> {
-    read(|manager| manager.dev_container.get(id))
-}
-
 pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
     read(|manager| manager.dev_container.get_one())
 }
