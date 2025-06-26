@@ -184,11 +184,8 @@ impl<T: Any> Device<T> {
     ///
     /// # Safety
     /// 一般用于中断处理中
-    pub unsafe fn force_use(&self) -> Result<*mut T, GetDeviceError> {
-        if self.lock.upgrade().is_none() {
-            return Err(GetDeviceError::DeviceReleased);
-        }
-        Ok(self.ptr)
+    pub unsafe fn force_use(&self) -> *mut T {
+        self.ptr
     }
 }
 
