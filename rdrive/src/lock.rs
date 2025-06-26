@@ -8,26 +8,25 @@ use alloc::{
     boxed::Box,
     sync::{Arc, Weak},
 };
-use rdif_base::DriverGeneric;
 
-use crate::{Descriptor, Pid, get_pid};
+use crate::{Descriptor, Pid, driver::Class, get_pid};
 
 pub struct DeviceOwner {
     lock: Arc<LockInner>,
 }
 
 impl DeviceOwner {
-    pub fn new<T: DriverGeneric + 'static>(descriptor: Descriptor, device: T) -> Self {
+    pub fn new<T: Class>(descriptor: Descriptor, device: T) -> Self {
         Self {
             lock: Arc::new(LockInner::new(descriptor, Box::into_raw(Box::new(device)))),
         }
     }
 
-    pub fn weak<T: DriverGeneric>(&self) -> Result<Device<T>, GetDeviceError> {
+    pub fn weak<T: Class>(&self) -> Result<Device<T>, GetDeviceError> {
         Device::new(&self.lock)
     }
 
-    pub fn is<T: DriverGeneric>(&self) -> bool {
+    pub fn is<T: Class>(&self) -> bool {
         unsafe { &*self.lock.ptr }.is::<T>()
     }
 }
@@ -99,14 +98,14 @@ impl LockInner {
     }
 }
 
-pub struct DeviceGuard<T: DriverGeneric> {
+pub struct DeviceGuard<T> {
     lock: Arc<LockInner>,
     ptr: *mut T,
 }
 
-unsafe impl<T: DriverGeneric> Send for DeviceGuard<T> {}
+unsafe impl<T> Send for DeviceGuard<T> {}
 
-impl<T: DriverGeneric> Drop for DeviceGuard<T> {
+impl<T> Drop for DeviceGuard<T> {
     fn drop(&mut self) {
         self.lock
             .borrowed
@@ -114,7 +113,7 @@ impl<T: DriverGeneric> Drop for DeviceGuard<T> {
     }
 }
 
-impl<T: DriverGeneric> Deref for DeviceGuard<T> {
+impl<T> Deref for DeviceGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -122,13 +121,13 @@ impl<T: DriverGeneric> Deref for DeviceGuard<T> {
     }
 }
 
-impl<T: DriverGeneric> DerefMut for DeviceGuard<T> {
+impl<T> DerefMut for DeviceGuard<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.ptr }
     }
 }
 
-impl<T: DriverGeneric> DeviceGuard<T> {
+impl<T> DeviceGuard<T> {
     pub fn descriptor(&self) -> &Descriptor {
         &self.lock.descriptor
     }
@@ -144,7 +143,7 @@ pub struct Device<T> {
 unsafe impl<T> Send for Device<T> {}
 unsafe impl<T> Sync for Device<T> {}
 
-impl<T: DriverGeneric> Device<T> {
+impl<T: Any> Device<T> {
     fn new(lock: &Arc<LockInner>) -> Result<Self, GetDeviceError> {
         let ptr = match unsafe { &*lock.ptr }.downcast_ref::<T>() {
             Some(v) => v as *const T as *mut T,
@@ -190,6 +189,26 @@ impl<T: DriverGeneric> Device<T> {
             return Err(GetDeviceError::DeviceReleased);
         }
         Ok(self.ptr)
+    }
+}
+
+impl<T: Class> Device<T> {
+    pub fn downcast<T2: 'static>(&self) -> Result<Device<T2>, GetDeviceError> {
+        let lock = self.lock.upgrade().ok_or(GetDeviceError::DeviceReleased)?;
+
+        let t2_any = unsafe { &mut *self.ptr }
+            .raw_any_mut()
+            .ok_or(GetDeviceError::TypeNotMatch)?;
+
+        let t2_type = t2_any
+            .downcast_mut::<T2>()
+            .ok_or(GetDeviceError::TypeNotMatch)?;
+
+        Ok(Device {
+            lock: Arc::downgrade(&lock),
+            descriptor: self.descriptor.clone(),
+            ptr: t2_type as *mut T2,
+        })
     }
 }
 

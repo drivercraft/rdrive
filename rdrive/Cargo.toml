@@ -7,7 +7,7 @@ keywords = ["os", "driver"]
 license = "MIT"
 name = "rdrive"
 repository.workspace = true
-version = "0.14.4"
+version = "0.15.0"
 
 [dependencies]
 enum_dispatch = "0.3"

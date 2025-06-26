@@ -10,6 +10,7 @@ macro_rules! def_driver {
             pub mod [<$name:lower>]{
                 pub use $($u),+::*;
                 use rdif_base::AsAny;
+                use $crate::driver::Class;
 
                 pub struct $name(alloc::boxed::Box<dyn $tr>);
 
@@ -19,11 +20,11 @@ macro_rules! def_driver {
                     }
 
                     pub fn typed_ref<T: $tr>(&self) -> Option<&T> {
-                        <dyn $tr as AsAny>::as_any(self.0.as_ref()).downcast_ref()
+                        self.raw_any()?.downcast_ref()
                     }
 
                     pub fn typed_mut<T: $tr>(&mut self) -> Option<&mut T> {
-                        <dyn $tr as AsAny>::as_any_mut(self.0.as_mut()).downcast_mut()
+                        self.raw_any_mut()?.downcast_mut()
                     }
                 }
 
@@ -34,6 +35,16 @@ macro_rules! def_driver {
 
                     fn close(&mut self) -> Result<(), rdif_base::KError> {
                         self.0.close()
+                    }
+                }
+
+                impl Class for $name {
+                    fn raw_any(&self) -> Option<&dyn core::any::Any> {
+                        Some( <dyn $tr as AsAny>::as_any(self.0.as_ref()))
+                    }
+
+                    fn raw_any_mut(&mut self) -> Option<&mut dyn core::any::Any> {
+                        Some( <dyn $tr as AsAny>::as_any_mut(self.0.as_mut()))
                     }
                 }
 

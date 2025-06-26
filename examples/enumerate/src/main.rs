@@ -12,7 +12,6 @@ use rdrive::{
 pub mod blk;
 pub mod clk;
 pub mod timer;
-pub mod uart;
 
 fn main() {
     env_logger::builder()
@@ -39,7 +38,6 @@ fn main() {
     rdrive::register_add(register);
     rdrive::register_add(timer::register());
     rdrive::register_add(clk::register());
-    rdrive::register_add(uart::register());
     rdrive::register_add(blk::register());
 
     rdrive::probe_pre_kernel().unwrap();

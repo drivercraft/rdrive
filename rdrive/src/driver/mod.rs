@@ -1,4 +1,6 @@
-use rdif_base::DriverGeneric;
+use core::any::Any;
+
+pub use rdif_base::DriverGeneric;
 
 use crate::Descriptor;
 
@@ -17,6 +19,8 @@ impl DriverGeneric for Empty {
     }
 }
 
+impl Class for Empty {}
+
 pub struct PlatformDevice {
     pub descriptor: Descriptor,
 }
@@ -30,10 +34,19 @@ impl PlatformDevice {
     ///
     /// # Panics
     /// This method will panic if the device with the same ID is already added
-    pub fn register<T: DriverGeneric>(self, driver: T) {
+    pub fn register<T: Class>(self, driver: T) {
         crate::edit(|manager| {
             manager.dev_container.insert(self.descriptor, driver);
         });
+    }
+}
+
+pub trait Class: DriverGeneric {
+    fn raw_any(&self) -> Option<&dyn Any> {
+        None
+    }
+    fn raw_any_mut(&mut self) -> Option<&mut dyn Any> {
+        None
     }
 }
 
