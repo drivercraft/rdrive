@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.1...rdrive-v0.15.2) - 2025-06-26
+
+### Other
+
+- 修改 force_use 方法，简化返回值类型
+- Merge branch 'main' of github.com:drivercraft/rdrive
+- 更新示例链接，指向 GitHub 上的具体实现
+
 ## [0.15.1](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.0...rdrive-v0.15.1) - 2025-06-26
 
 ### Other
