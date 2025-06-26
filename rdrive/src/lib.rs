@@ -177,7 +177,7 @@ pub fn get_one<T: Class>() -> Option<Device<T>> {
 ///     fn open(&mut self) -> Result<(), rdrive::KError> { todo!() }
 ///     fn close(&mut self) -> Result<(), rdrive::KError> { todo!() }
 /// }
-/// 
+///
 /// impl rdrive::driver::serial::Interface for UartDriver {
 ///     fn handle_irq(&mut self) { todo!() }
 ///     fn take_tx(&mut self) -> Option<Box<(dyn rdrive::driver::serial::io::Write + 'static)>> { todo!() }
@@ -198,7 +198,10 @@ pub fn get_one<T: Class>() -> Option<Device<T>> {
 ///     priority: ProbePriority::DEFAULT,
 ///     probe_kinds: &[ProbeKind::Fdt {
 ///         compatibles: &["ns16550a", "arm,pl011"],
-///         on_probe: probe_uart,
+///         // Use `probe_uart` above; this usage is because doctests cannot find the parent module.
+///         on_probe: |fdt, dev|{
+///             Ok(())
+///         },
 ///     }],
 /// }
 /// ```

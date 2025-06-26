@@ -77,7 +77,8 @@ impl DeviceContainer {
 
 #[cfg(test)]
 mod tests {
-    use crate::driver::{self, Empty};
+
+    use crate::driver::{Class, DriverGeneric, Empty, Intc, intc};
 
     use super::*;
 
@@ -107,8 +108,8 @@ mod tests {
         let mut container = DeviceContainer::default();
         let desc = Descriptor::new();
         let id = desc.device_id;
-        container.insert(desc, driver::Empty);
-        let weak = container.get_typed::<driver::Empty>(id).unwrap();
+        container.insert(desc, Empty);
+        let weak = container.get_typed::<Empty>(id).unwrap();
 
         {
             let mut device = weak.lock().unwrap();
@@ -151,7 +152,7 @@ mod tests {
     #[test]
     fn test_not_found() {
         let container = DeviceContainer::default();
-        let dev = container.get_one::<driver::Intc>();
+        let dev = container.get_one::<Intc>();
         assert!(dev.is_none(), "Expected no devices found");
 
         if let Some(dev) = dev {
@@ -179,7 +180,7 @@ mod tests {
         }
     }
 
-    impl driver::intc::Interface for IrqTest {
+    impl intc::Interface for IrqTest {
         fn irq_enable(&mut self, _irq: rdif_intc::IrqId) -> Result<(), rdif_intc::IntcError> {
             todo!()
         }
@@ -221,9 +222,9 @@ mod tests {
     fn test_inner_type() {
         let mut container = DeviceContainer::default();
         let desc = Descriptor::new();
-        container.insert(desc, driver::Intc::new(IrqTest {}));
+        container.insert(desc, Intc::new(IrqTest {}));
 
-        let weak = container.get_one::<driver::Intc>().unwrap();
+        let weak = container.get_one::<Intc>().unwrap();
         {
             let device = weak.lock().unwrap();
             let intc = device.typed_ref::<IrqTest>();
@@ -235,9 +236,9 @@ mod tests {
     fn test_device_downcast() {
         let mut container = DeviceContainer::default();
         let desc = Descriptor::new();
-        container.insert(desc, driver::Intc::new(IrqTest {}));
+        container.insert(desc, Intc::new(IrqTest {}));
 
-        let weak = container.get_one::<driver::Intc>().unwrap();
+        let weak = container.get_one::<Intc>().unwrap();
         let intc_typed = weak.downcast::<IrqTest>().unwrap();
         let mut device = intc_typed.lock().unwrap();
         assert!(device.is_ok(), "Expected device to be ok");
