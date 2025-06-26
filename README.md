@@ -219,5 +219,4 @@ See the `examples/` directory for complete usage examples:
 
 For complete integration examples, see:
 
-- [Initialization Example](examples/enumerate/src/main.rs)
-- [Driver Implementation Examples](examples/enumerate/src/)
+- [Example](https://github.com/drivercraft/rdrive/blob/4d86d7233ce7f55968d225a4048f4a8e0487c377/examples/enumerate/src/main.rs)
