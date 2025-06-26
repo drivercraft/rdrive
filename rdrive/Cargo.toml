@@ -8,6 +8,7 @@ license = "MIT"
 name = "rdrive"
 repository.workspace = true
 version = "0.15.0"
+readme = "../README.md"
 
 [dependencies]
 enum_dispatch = "0.3"
