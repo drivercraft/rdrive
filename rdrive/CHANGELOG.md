@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.0...rdrive-v0.15.1) - 2025-06-26
+
+### Other
+
+- 更新 README.md，添加架构概述和驱动注册示例
+
 ## [0.15.0](https://github.com/drivercraft/rdrive/compare/rdrive-v0.14.3...rdrive-v0.15.0) - 2025-06-25
 
 ### Added
