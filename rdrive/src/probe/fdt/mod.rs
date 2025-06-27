@@ -40,6 +40,16 @@ pub struct System {
 
 unsafe impl Send for System {}
 
+impl System {
+    pub fn fdt_addr(&self) -> NonNull<u8> {
+        self.fdt_addr
+    }
+
+    pub fn phandle_to_device_id(&self, phandle: Phandle) -> Option<DeviceId> {
+        self.phandle_2_device_id.get(&phandle).copied()
+    }
+}
+
 impl super::EnumSystemTrait for System {
     fn to_unprobed(
         &mut self,

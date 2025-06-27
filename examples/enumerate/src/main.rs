@@ -55,6 +55,10 @@ fn main() {
     }
 
     rdrive::probe_all(true).unwrap();
+
+    let id = rdrive::fdt_phandle_to_device_id(0x8000.into());
+
+    println!("phandle 0x8000 to device id: {:?}", id);
 }
 
 struct IrqTest {}

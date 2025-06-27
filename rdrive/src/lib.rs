@@ -30,7 +30,11 @@ pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;
 
-use crate::{driver::Class, error::DriverError, probe::OnProbeError};
+use crate::{
+    driver::Class,
+    error::DriverError,
+    probe::{EnumSystem, OnProbeError},
+};
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
 
@@ -139,6 +143,15 @@ pub fn get<T: Class>(id: DeviceId) -> Result<Device<T>, GetDeviceError> {
 
 pub fn get_one<T: Class>() -> Option<Device<T>> {
     read(|manager| manager.dev_container.get_one())
+}
+
+pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
+    read(|manager| {
+        let EnumSystem::Fdt(system) = &manager.enum_system else {
+            return None;
+        };
+        system.phandle_to_device_id(phandle)
+    })
 }
 
 /// Macro for generating a driver module.
