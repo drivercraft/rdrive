@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.2...rdrive-v0.15.3) - 2025-06-27
+
+### Added
+
+- 添加 fdt_phandle_to_device_id 方法并在示例中使用
+
+### Other
+
+- 简化 fdt_phandle_to_device_id 函数中的模式匹配
+- Merge branch 'main' of github.com:drivercraft/rdrive
+
 ## [0.15.2](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.1...rdrive-v0.15.2) - 2025-06-26
 
 ### Other
