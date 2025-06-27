@@ -147,9 +147,7 @@ pub fn get_one<T: Class>() -> Option<Device<T>> {
 
 pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
     read(|manager| {
-        let EnumSystem::Fdt(system) = &manager.enum_system else {
-            return None;
-        };
+        let EnumSystem::Fdt(system) = &manager.enum_system;
         system.phandle_to_device_id(phandle)
     })
 }
