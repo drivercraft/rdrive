@@ -180,43 +180,7 @@ mod tests {
         }
     }
 
-    impl intc::Interface for IrqTest {
-        fn irq_enable(&mut self, _irq: rdif_intc::IrqId) -> Result<(), rdif_intc::IntcError> {
-            todo!()
-        }
-
-        fn irq_disable(&mut self, _irq: rdif_intc::IrqId) -> Result<(), rdif_intc::IntcError> {
-            todo!()
-        }
-
-        fn set_priority(
-            &mut self,
-            _irq: rdif_intc::IrqId,
-            _priority: usize,
-        ) -> Result<(), rdif_intc::IntcError> {
-            todo!()
-        }
-
-        fn set_trigger(
-            &mut self,
-            _irq: rdif_intc::IrqId,
-            _trigger: rdif_intc::Trigger,
-        ) -> Result<(), rdif_intc::IntcError> {
-            todo!()
-        }
-
-        fn set_target_cpu(
-            &mut self,
-            _irq: rdif_intc::IrqId,
-            _cpu: rdif_base::CpuId,
-        ) -> Result<(), rdif_intc::IntcError> {
-            todo!()
-        }
-
-        fn cpu_local(&self) -> Option<rdif_intc::local::Boxed> {
-            todo!()
-        }
-    }
+    impl intc::Interface for IrqTest {}
 
     #[test]
     fn test_inner_type() {
