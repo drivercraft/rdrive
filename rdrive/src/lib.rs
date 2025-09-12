@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(box_as_ptr)]
 
 extern crate alloc;
 
@@ -242,7 +241,7 @@ macro_rules! module_driver {
                 /// system startup.
                 #[unsafe(link_section = ".driver.register")]
                 #[unsafe(no_mangle)]
-                #[link(used)]
+                // #[used(linker)]
                 pub static DRIVER: DriverRegister = DriverRegister {
                     $($i : $t),+
                 };
