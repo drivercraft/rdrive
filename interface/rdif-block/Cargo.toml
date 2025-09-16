@@ -1,14 +1,19 @@
 [package]
-name = "rdif-block"
-version = "0.5.0"
-edition.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
-repository.workspace = true
-license = "MIT"
-description = "Driver Interface block definition."
-keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
+description = "Driver Interface block definition."
+edition.workspace = true
+keywords = ["os", "driver"]
+license = "MIT"
+name = "rdif-block"
+repository.workspace = true
+version = "0.5.0"
 
 [dependencies]
-rdif-base = { workspace = true }
 cfg-if = "1.0"
+futures = {version = "0.3", features = ["alloc"], default-features = false}
+rdif-base = {workspace = true}
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+dma-api = {path="/home/zhourui/opensource/dma-api", features = ["alloc"]}
