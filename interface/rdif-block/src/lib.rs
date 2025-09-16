@@ -21,10 +21,12 @@ pub struct BuffConfig {
 pub enum BlkError {
     #[error("Not supported")]
     NotSupported,
-    #[error("Would block")]
-    WouldBlock,
+    #[error("Need retry")]
+    Retry,
     #[error("No memory")]
     NoMemory,
+    #[error("Out of bounds, block: {0}")]
+    OutOfBounds(usize),
     #[error("Unknown: {0}")]
     Unknown(Box<dyn core::error::Error>),
 }
@@ -33,8 +35,9 @@ impl From<BlkError> for io::ErrorKind {
     fn from(value: BlkError) -> Self {
         match value {
             BlkError::NotSupported => io::ErrorKind::Unsupported,
-            BlkError::WouldBlock => io::ErrorKind::Interrupted,
+            BlkError::Retry => io::ErrorKind::Interrupted,
             BlkError::NoMemory => io::ErrorKind::OutOfMemory,
+            BlkError::OutOfBounds(_) => io::ErrorKind::NotAvailable,
             BlkError::Unknown(e) => io::ErrorKind::Other(e),
         }
     }

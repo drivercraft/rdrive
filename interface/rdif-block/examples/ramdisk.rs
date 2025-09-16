@@ -75,16 +75,24 @@ impl RamDisk {
         std::thread::spawn(move || {
             loop {
                 // take a snapshot of pending requests
-                let mut guard = inner_cloned.lock().unwrap();
-                if guard.pending.is_empty() {
-                    // no work - sleep briefly
-                    drop(guard);
-                    std::thread::sleep(Duration::from_millis(5));
-                    continue;
-                }
+                let (reqs, writes) = {
+                    let mut guard = inner_cloned.lock().unwrap();
+                    if guard.pending.is_empty() && guard.pending_writes.is_empty() {
+                        // no work - sleep briefly
+                        drop(guard);
+                        std::thread::sleep(Duration::from_millis(5));
+                        continue;
+                    }
 
-                // process all pending read requests
-                let reqs = core::mem::take(&mut guard.pending);
+                    // take requests and release lock immediately
+                    let reqs = core::mem::take(&mut guard.pending);
+                    let writes = core::mem::take(&mut guard.pending_writes);
+                    (reqs, writes)
+                    // lock is automatically released here
+                };
+
+                // process all pending read requests without holding the lock
+                let mut completed_reads = Vec::new();
                 for (req_id, block_id, buf_ptr_usize, sz) in &reqs {
                     // copy block data into user buffer
                     let start = block_id * sz;
@@ -96,13 +104,11 @@ impl RamDisk {
                             *sz,
                         );
                     }
-                    // mark request completed and set rx irq flag so handle_irq will return event
-                    guard.completed.push(*req_id);
-                    guard.irq_rx.insert(0);
+                    completed_reads.push(*req_id);
                 }
 
-                // process pending write requests
-                let writes = core::mem::take(&mut guard.pending_writes);
+                // process pending write requests without holding the lock
+                let mut completed_writes = Vec::new();
                 for (req_id, block_id, src_ptr_usize, sz) in &writes {
                     let start = block_id * sz;
                     let src_ptr = *src_ptr_usize as *const u8;
@@ -113,11 +119,19 @@ impl RamDisk {
                             *sz,
                         );
                     }
-                    guard.completed_writes.push(*req_id);
-                    guard.irq_rx.insert(0);
+                    completed_writes.push(*req_id);
                 }
 
-                drop(guard);
+                // acquire lock again only to update completion status
+                {
+                    let mut guard = inner_cloned.lock().unwrap();
+                    guard.completed.extend(completed_reads);
+                    guard.completed_writes.extend(completed_writes);
+                    if !reqs.is_empty() || !writes.is_empty() {
+                        guard.irq_rx.insert(0);
+                    }
+                }
+
                 // small delay to simulate device latency
                 std::thread::sleep(Duration::from_millis(1));
             }
@@ -235,7 +249,7 @@ impl IWriteQueue for RamWriteQueue {
 
     fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError> {
         if block_id >= self.num_blocks {
-            return Err(BlkError::WouldBlock);
+            return Err(BlkError::Retry);
         }
 
         let mut g = self.inner.lock().unwrap();
@@ -257,7 +271,7 @@ impl IWriteQueue for RamWriteQueue {
             g.completed_writes.remove(pos);
             Ok(())
         } else {
-            Err(BlkError::WouldBlock)
+            Err(BlkError::Retry)
         }
     }
 }
@@ -312,7 +326,7 @@ impl IReadQueue for RamReadQueue {
             Ok(())
         } else {
             // not completed yet
-            Err(BlkError::WouldBlock)
+            Err(BlkError::Retry)
         }
     }
 }
@@ -334,10 +348,6 @@ async fn main() {
     // get a write queue
     let mut wq = ram.new_write_queue().expect("write queue");
 
-    // prepare data for blocks 3 and 4: fill with 0xAA and 0xBB respectively
-    let blk3 = vec![0xAAu8; 16];
-    let blk4 = vec![0xBBu8; 16];
-
     // spawn a thread that polls the device handle and prints events
     let handle = ram.irq_handler();
     std::thread::spawn(move || {
@@ -355,28 +365,36 @@ async fn main() {
     // println!("write done");
 
     // request blocks 3 and 4 and asynchronously poll for completion
-    let res = rq.read_blocks(&[3, 4]).await;
+    let res = rq.read_blocks(3, 2).await;
 
     for b in res {
         println!("block: {:?}", b.unwrap());
     }
     let size = rq.block_size();
 
-    let writes = [vec![0; size], vec![0; size]];
+    // prepare data for blocks 3 and 4: fill with 0xAA and 0xBB respectively
+    let mut data = vec![0xAAu8; size];
+    data.extend(vec![0xBBu8; size]);
 
-    let req = [(3, &writes[0]), (4, &writes[1])];
-
-    let res = wq.write_blocks(req).await;
+    let res = wq.write_blocks(3, &data).await;
 
     for r in res {
         println!("write block result: {:?}", r);
     }
 
-    let res = rq.read_blocks(&[3, 4]).await;
+    let res = rq.read_blocks(3, 2).await;
 
     for b in res {
         println!("block: {:?}", b.unwrap());
     }
 
     println!("done");
+
+    // test blocking
+    println!("test blocking read");
+
+    let res = rq.read_blocks_blocking(3, 2);
+    for b in res {
+        println!("block: {:?}", b.unwrap());
+    }
 }

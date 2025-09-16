@@ -15,6 +15,7 @@ dma-api = {path = "/home/zhourui/opensource/dma-api", features = ["alloc"]}
 futures = {version = "0.3", features = ["alloc"], default-features = false}
 rdif-base = {workspace = true}
 thiserror = {version = "2", default-features = false}
+spin_on = "0.1"
 
 [dev-dependencies]
 tokio = {version = "1", features = ["full"]}

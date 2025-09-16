@@ -200,14 +200,24 @@ impl ReadQueue {
         self.interface.block_size()
     }
 
-    pub async fn read_blocks(
+    pub fn read_blocks(
         &mut self,
-        block_id_ls: impl AsRef<[usize]>,
+        start_blk_id: usize,
+        count: usize,
+    ) -> impl core::future::Future<Output = Vec<Result<BlockData, BlkError>>> {
+        let block_id_ls = (start_blk_id..start_blk_id + count).collect();
+        ReadFuture::new(self, block_id_ls)
+    }
+
+    pub fn read_blocks_blocking(
+        &mut self,
+        start_blk_id: usize,
+        count: usize,
     ) -> Vec<Result<BlockData, BlkError>> {
-        let block_id_ls = block_id_ls.as_ref().to_vec();
-        ReadFuture::new(self, block_id_ls).await
+        spin_on::spin_on(self.read_blocks(start_blk_id, count))
     }
 }
+
 pub struct ReadFuture<'a> {
     queue: &'a mut ReadQueue,
     blk_ls: Vec<usize>,
@@ -260,7 +270,7 @@ impl<'a> core::future::Future for ReadFuture<'a> {
                             this.map.insert(blk_id, req_id);
                             this.requested.insert(blk_id, Some(buff));
                         }
-                        Err(BlkError::WouldBlock) => {
+                        Err(BlkError::Retry) => {
                             this.queue.waker.register(cx.waker());
                             return Poll::Pending;
                         }
@@ -292,7 +302,7 @@ impl<'a> core::future::Future for ReadFuture<'a> {
                         }),
                     );
                 }
-                Err(BlkError::WouldBlock) => {
+                Err(BlkError::Retry) => {
                     this.queue.waker.register(cx.waker());
                     return Poll::Pending;
                 }
@@ -329,17 +339,29 @@ impl WriteQueue {
     }
 
     /// Write multiple blocks. Caller provides owned Vec<u8> buffers for each block.
-    pub async fn write_blocks<T, R>(&mut self, block_vecs: T) -> Vec<Result<(), BlkError>>
-    where
-        T: AsRef<[(usize, R)]>,
-        R: AsRef<[u8]>,
-    {
-        let block_vecs: Vec<(usize, &[u8])> = block_vecs
-            .as_ref()
-            .iter()
-            .map(|(id, buf)| (*id, buf.as_ref()))
-            .collect();
+    pub async fn write_blocks(
+        &mut self,
+        start_blk_id: usize,
+        data: &[u8],
+    ) -> Vec<Result<(), BlkError>> {
+        let block_size = self.block_size();
+        assert_eq!(data.len() % block_size, 0);
+        let count = data.len() / block_size;
+        let mut block_vecs = Vec::with_capacity(count);
+        for i in 0..count {
+            let blk_id = start_blk_id + i;
+            let blk_data = &data[i * block_size..(i + 1) * block_size];
+            block_vecs.push((blk_id, blk_data));
+        }
         WriteFuture::new(self, block_vecs).await
+    }
+
+    pub fn write_blocks_blocking(
+        &mut self,
+        start_blk_id: usize,
+        data: &[u8],
+    ) -> Vec<Result<(), BlkError>> {
+        spin_on::spin_on(self.write_blocks(start_blk_id, data))
     }
 }
 
@@ -385,7 +407,7 @@ impl<'a, 'b> core::future::Future for WriteFuture<'a, 'b> {
                     this.map.insert(blk_id, req_id);
                     this.requested.insert(blk_id);
                 }
-                Err(BlkError::WouldBlock) => {
+                Err(BlkError::Retry) => {
                     this.queue.waker.register(cx.waker());
                     return Poll::Pending;
                 }
@@ -406,7 +428,7 @@ impl<'a, 'b> core::future::Future for WriteFuture<'a, 'b> {
                 Ok(_) => {
                     this.results.insert(*blk_id, Ok(()));
                 }
-                Err(BlkError::WouldBlock) => {
+                Err(BlkError::Retry) => {
                     this.queue.waker.register(cx.waker());
                     return Poll::Pending;
                 }
