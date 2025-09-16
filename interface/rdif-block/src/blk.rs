@@ -57,7 +57,7 @@ struct IrqGuard<'a> {
 impl<'a> Drop for IrqGuard<'a> {
     fn drop(&mut self) {
         if self.enabled {
-            self.inner.interface().irq_enable();
+            self.inner.interface().enable_irq();
         }
     }
 }
@@ -87,9 +87,9 @@ impl Block {
     }
 
     fn irq_guard(&self) -> IrqGuard<'_> {
-        let enabled = self.interface().irq_is_enabled();
+        let enabled = self.interface().is_irq_enabled();
         if enabled {
-            self.interface().irq_disable();
+            self.interface().disable_irq();
         }
         IrqGuard {
             enabled,
@@ -97,9 +97,10 @@ impl Block {
         }
     }
 
-    pub fn new_read_queue_with_pool_cap(&mut self, cap: usize) -> Option<ReadQueue> {
+    /// Create a new read queue with specified buffer pool capacity.
+    pub fn create_read_queue_with_capacity(&mut self, capacity: usize) -> Option<ReadQueue> {
         let irq_guard = self.irq_guard();
-        let queue = self.interface().new_read_queue()?;
+        let queue = self.interface().create_read_queue()?;
         let queue_id = queue.id();
         let config = queue.buff_config();
         let waker = self.inner.rx_waker_map.register(queue_id);
@@ -114,28 +115,52 @@ impl Block {
                 size: config.size,
                 direction: Direction::FromDevice,
             },
-            cap,
+            capacity,
         ))
     }
 
-    pub fn new_read_queue(&mut self) -> Option<ReadQueue> {
-        self.new_read_queue_with_pool_cap(32)
+    /// Create a new read queue with default capacity.
+    pub fn create_read_queue(&mut self) -> Option<ReadQueue> {
+        self.create_read_queue_with_capacity(32)
     }
 
+    /// Backward compatibility alias for `create_read_queue_with_capacity`.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use `create_read_queue_with_capacity` instead"
+    )]
+    pub fn new_read_queue_with_pool_cap(&mut self, capacity: usize) -> Option<ReadQueue> {
+        self.create_read_queue_with_capacity(capacity)
+    }
+
+    /// Backward compatibility alias for `create_read_queue`.
+    #[deprecated(since = "0.1.0", note = "Use `create_read_queue` instead")]
+    pub fn new_read_queue(&mut self) -> Option<ReadQueue> {
+        self.create_read_queue()
+    }
+
+    /// Get an IRQ handler for this block device.
     pub fn irq_handler(&self) -> IrqHandler {
         IrqHandler {
             inner: self.inner.clone(),
         }
     }
 
-    pub fn new_write_queue(&mut self) -> Option<WriteQueue> {
+    /// Create a new write queue.
+    pub fn create_write_queue(&mut self) -> Option<WriteQueue> {
         let irq_guard = self.irq_guard();
-        let queue = self.interface().new_write_queue()?;
+        let queue = self.interface().create_write_queue()?;
         let queue_id = queue.id();
         let waker = self.inner.tx_waker_map.register(queue_id);
         drop(irq_guard);
 
         Some(WriteQueue::new(queue, waker))
+    }
+
+    /// Backward compatibility alias for `create_write_queue`.
+    #[deprecated(since = "0.1.0", note = "Use `create_write_queue` instead")]
+    pub fn new_write_queue(&mut self) -> Option<WriteQueue> {
+        self.create_write_queue()
     }
 }
 
@@ -258,7 +283,7 @@ impl<'a> core::future::Future for ReadFuture<'a> {
 
             match this.queue.pool.alloc() {
                 Ok(buff) => {
-                    match this.queue.interface.request_block(
+                    match this.queue.interface.submit_read_request(
                         blk_id,
                         Buffer {
                             virt: buff.as_ptr(),
@@ -292,7 +317,7 @@ impl<'a> core::future::Future for ReadFuture<'a> {
 
             let req_id = this.map[blk_id];
 
-            match this.queue.interface.check_request(req_id) {
+            match this.queue.interface.poll_request(req_id) {
                 Ok(_) => {
                     this.results.insert(
                         *blk_id,
@@ -402,7 +427,7 @@ impl<'a, 'b> core::future::Future for WriteFuture<'a, 'b> {
                 continue;
             }
 
-            match this.queue.interface.request_block(blk_id, buff) {
+            match this.queue.interface.submit_write_request(blk_id, buff) {
                 Ok(req_id) => {
                     this.map.insert(blk_id, req_id);
                     this.requested.insert(blk_id);
@@ -424,7 +449,7 @@ impl<'a, 'b> core::future::Future for WriteFuture<'a, 'b> {
 
             let req_id = this.map[blk_id];
 
-            match this.queue.interface.check_request(req_id) {
+            match this.queue.interface.poll_request(req_id) {
                 Ok(_) => {
                     this.results.insert(*blk_id, Ok(()));
                 }

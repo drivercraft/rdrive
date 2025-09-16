@@ -157,7 +157,7 @@ impl rdif_base::DriverGeneric for RamDisk {
 }
 
 impl Interface for RamDisk {
-    fn new_read_queue(&mut self) -> Option<Box<dyn IReadQueue>> {
+    fn create_read_queue(&mut self) -> Option<Box<dyn IReadQueue>> {
         Some(Box::new(RamReadQueue::new(
             self.block_size,
             self.num_blocks,
@@ -165,7 +165,7 @@ impl Interface for RamDisk {
         )))
     }
 
-    fn new_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>> {
+    fn create_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>> {
         Some(Box::new(RamWriteQueue::new(
             self.block_size,
             self.num_blocks,
@@ -173,17 +173,17 @@ impl Interface for RamDisk {
         )))
     }
 
-    fn irq_enable(&mut self) {
+    fn enable_irq(&mut self) {
         let mut g = self.inner.lock().unwrap();
         g.irq_enabled = true;
     }
 
-    fn irq_disable(&mut self) {
+    fn disable_irq(&mut self) {
         let mut g = self.inner.lock().unwrap();
         g.irq_enabled = false;
     }
 
-    fn irq_is_enabled(&self) -> bool {
+    fn is_irq_enabled(&self) -> bool {
         let g = self.inner.lock().unwrap();
         g.irq_enabled
     }
@@ -247,7 +247,7 @@ impl IWriteQueue for RamWriteQueue {
         self.block_size
     }
 
-    fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError> {
+    fn submit_write_request(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError> {
         if block_id >= self.num_blocks {
             return Err(BlkError::Retry);
         }
@@ -265,7 +265,7 @@ impl IWriteQueue for RamWriteQueue {
         Ok(req_id)
     }
 
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
+    fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError> {
         let mut g = self.inner.lock().unwrap();
         if let Some(pos) = g.completed_writes.iter().position(|r| *r == request) {
             g.completed_writes.remove(pos);
@@ -297,11 +297,9 @@ impl IReadQueue for RamReadQueue {
         }
     }
 
-    fn request_block(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError> {
+    fn submit_read_request(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError> {
         if block_id >= self.num_blocks {
-            return Err(BlkError::Unknown(
-                format!("block_id {} out of range", block_id).into(),
-            ));
+            return Err(BlkError::InvalidBlockIndex(block_id));
         }
 
         let mut g = self.inner.lock().unwrap();
@@ -317,7 +315,7 @@ impl IReadQueue for RamReadQueue {
         Ok(req_id)
     }
 
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
+    fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError> {
         // Check whether the given request id has been completed by worker.
         let mut g = self.inner.lock().unwrap();
         if let Some(pos) = g.completed.iter().position(|r| *r == request) {
@@ -343,10 +341,10 @@ async fn main() {
     let _ = ram.open();
 
     // get a read queue via the new Interface API
-    let mut rq = ram.new_read_queue().expect("read queue");
+    let mut rq = ram.create_read_queue().expect("read queue");
 
     // get a write queue
-    let mut wq = ram.new_write_queue().expect("write queue");
+    let mut wq = ram.create_write_queue().expect("write queue");
 
     // spawn a thread that polls the device handle and prints events
     let handle = ram.irq_handler();

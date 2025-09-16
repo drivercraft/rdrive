@@ -11,24 +11,94 @@ pub use blk::*;
 
 pub use dma_api;
 
+/// Configuration for DMA buffer allocation.
+///
+/// This structure specifies the requirements for DMA buffers used in
+/// block device operations. The configuration ensures that buffers
+/// meet the hardware's alignment and addressing constraints.
 pub struct BuffConfig {
+    /// DMA addressing mask for the device.
+    ///
+    /// This mask defines the addressable memory range for DMA operations.
+    /// For example, a 32-bit device would use `0xFFFFFFFF`.
     pub dma_mask: u64,
+
+    /// Required alignment for buffer addresses.
+    ///
+    /// Buffers must be aligned to this boundary (in bytes) for optimal
+    /// performance and hardware compatibility. Common values are 512 or 4096.
     pub align: usize,
+
+    /// Size of each buffer in bytes.
+    ///
+    /// This typically matches the device's block size to ensure efficient
+    /// data transfer and avoid partial block operations.
     pub size: usize,
 }
 
+/// Errors that can occur during block device operations.
+///
+/// These errors provide detailed information about what went wrong during
+/// block device operations and how the caller should respond.
 #[derive(thiserror::Error, Debug)]
 pub enum BlkError {
-    #[error("Not supported")]
+    /// The requested operation is not supported by the device.
+    ///
+    /// This error occurs when attempting to perform an operation that the
+    /// hardware or driver does not support. For example, trying to write
+    /// to a read-only device.
+    ///
+    /// **Recovery**: Check device capabilities and use only supported operations.
+    #[error("Operation not supported")]
     NotSupported,
-    #[error("Need retry")]
+
+    /// The operation should be retried later.
+    ///
+    /// This error indicates that the operation failed due to temporary conditions
+    /// and should be retried. This commonly occurs when:
+    /// - The device queue is full
+    /// - The device is temporarily busy
+    /// - Resource contention prevents immediate completion
+    ///
+    /// **Recovery**: Wait a short time and retry the operation. Consider implementing
+    /// exponential backoff for repeated retries.
+    #[error("Operation should be retried")]
     Retry,
-    #[error("No memory")]
+
+    /// Insufficient memory to complete the operation.
+    ///
+    /// This error occurs when there is not enough memory available to:
+    /// - Allocate DMA buffers
+    /// - Create internal data structures
+    /// - Complete the requested operation
+    ///
+    /// **Recovery**: Free unused resources or wait for memory to become available.
+    /// Consider reducing the number of concurrent operations.
+    #[error("Insufficient memory")]
     NoMemory,
-    #[error("Out of bounds, block: {0}")]
-    OutOfBounds(usize),
-    #[error("Unknown: {0}")]
-    Unknown(Box<dyn core::error::Error>),
+
+    /// The specified block index is invalid or out of range.
+    ///
+    /// This error occurs when:
+    /// - The block index exceeds the device's capacity
+    /// - The block index is negative (in languages that allow it)
+    /// - The block has been marked as bad or unusable
+    ///
+    /// **Recovery**: Verify that the block index is within the valid range
+    /// (0 to `num_blocks() - 1`) and that the block is accessible.
+    #[error("Invalid block index: {0} (check device capacity and block accessibility)")]
+    InvalidBlockIndex(usize),
+
+    /// An unspecified error occurred.
+    ///
+    /// This error wraps other error types that don't fit into the specific
+    /// categories above. The wrapped error provides additional context about
+    /// what went wrong.
+    ///
+    /// **Recovery**: Examine the wrapped error for specific recovery instructions.
+    /// This often indicates a lower-level hardware or system error.
+    #[error("Other error: {0}")]
+    Other(Box<dyn core::error::Error>),
 }
 
 impl From<BlkError> for io::ErrorKind {
@@ -37,8 +107,8 @@ impl From<BlkError> for io::ErrorKind {
             BlkError::NotSupported => io::ErrorKind::Unsupported,
             BlkError::Retry => io::ErrorKind::Interrupted,
             BlkError::NoMemory => io::ErrorKind::OutOfMemory,
-            BlkError::OutOfBounds(_) => io::ErrorKind::NotAvailable,
-            BlkError::Unknown(e) => io::ErrorKind::Other(e),
+            BlkError::InvalidBlockIndex(_) => io::ErrorKind::NotAvailable,
+            BlkError::Other(e) => io::ErrorKind::Other(e),
         }
     }
 }
@@ -47,21 +117,51 @@ impl From<dma_api::DError> for BlkError {
     fn from(value: dma_api::DError) -> Self {
         match value {
             dma_api::DError::NoMemory => BlkError::NoMemory,
-            e => BlkError::Unknown(Box::new(e)),
+            e => BlkError::Other(Box::new(e)),
         }
     }
 }
 
 /// Operations that require a block storage device driver to implement.
+///
+/// This trait defines the core interface that all block device drivers
+/// must implement to work with the rdrive framework. It provides methods
+/// for queue management, interrupt handling, and device lifecycle operations.
 pub trait Interface: DriverGeneric {
-    fn new_read_queue(&mut self) -> Option<Box<dyn IReadQueue>>;
-    fn new_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>>;
+    /// Create a new read queue for reading blocks from the device.
+    ///
+    /// Returns `None` if the device cannot create more read queues or if
+    /// an error occurs during queue creation.
+    fn create_read_queue(&mut self) -> Option<Box<dyn IReadQueue>>;
 
-    fn irq_enable(&mut self);
-    fn irq_disable(&mut self);
-    fn irq_is_enabled(&self) -> bool;
+    /// Create a new write queue for writing blocks to the device.
+    ///
+    /// Returns `None` if the device cannot create more write queues or if
+    /// an error occurs during queue creation.
+    fn create_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>>;
+
+    /// Enable interrupts for the device.
+    ///
+    /// After calling this method, the device will generate interrupts
+    /// for completed operations and other events.
+    fn enable_irq(&mut self);
+
+    /// Disable interrupts for the device.
+    ///
+    /// After calling this method, the device will not generate interrupts.
+    /// This is useful during critical sections or device shutdown.
+    fn disable_irq(&mut self);
+
+    /// Check if interrupts are currently enabled.
+    ///
+    /// Returns `true` if interrupts are enabled, `false` otherwise.
+    fn is_irq_enabled(&self) -> bool;
 
     /// Handles an IRQ from the device, returning an event if applicable.
+    ///
+    /// This method should be called from the device's interrupt handler.
+    /// It processes the interrupt and returns information about which
+    /// queues have completed operations.
     fn handle_irq(&mut self) -> Event;
 }
 
@@ -138,22 +238,67 @@ impl Buffer {
     }
 }
 
+/// Read queue trait for block devices.
 pub trait IReadQueue: Send + 'static {
+    /// Get the queue identifier.
     fn id(&self) -> usize;
+
+    /// Get the total number of blocks available.
     fn num_blocks(&self) -> usize;
+
+    /// Get the size of each block in bytes.
     fn block_size(&self) -> usize;
+
+    /// Get the buffer configuration for this queue.
     fn buff_config(&self) -> BuffConfig;
-    fn request_block(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError>;
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError>;
+
+    /// Submit a request to read a specific block.
+    fn submit_read_request(&mut self, block_id: usize, buff: Buffer)
+    -> Result<RequestId, BlkError>;
+
+    /// Poll the status of a previously submitted request.
+    fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError>;
+
+    /// Backward compatibility alias for `submit_read_request`.
+    #[deprecated(since = "0.1.0", note = "Use `submit_read_request` instead")]
+    fn request_block(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError> {
+        self.submit_read_request(block_id, buff)
+    }
+
+    /// Backward compatibility alias for `poll_request`.
+    #[deprecated(since = "0.1.0", note = "Use `poll_request` instead")]
+    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
+        self.poll_request(request)
+    }
 }
 
 /// Write queue trait for block devices.
 pub trait IWriteQueue: Send + 'static {
+    /// Get the queue identifier.
     fn id(&self) -> usize;
+
+    /// Get the total number of blocks available.
     fn num_blocks(&self) -> usize;
+
+    /// Get the size of each block in bytes.
     fn block_size(&self) -> usize;
 
-    fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError>;
-    /// Check whether a previously requested write is complete.
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError>;
+    /// Submit a request to write data to a specific block.
+    fn submit_write_request(&mut self, block_id: usize, buff: &[u8])
+    -> Result<RequestId, BlkError>;
+
+    /// Poll the status of a previously submitted write request.
+    fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError>;
+
+    /// Backward compatibility alias for `submit_write_request`.
+    #[deprecated(since = "0.1.0", note = "Use `submit_write_request` instead")]
+    fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError> {
+        self.submit_write_request(block_id, buff)
+    }
+
+    /// Backward compatibility alias for `poll_request`.
+    #[deprecated(since = "0.1.0", note = "Use `poll_request` instead")]
+    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
+        self.poll_request(request)
+    }
 }
