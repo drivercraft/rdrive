@@ -9,9 +9,50 @@ mod blk;
 
 pub use blk::*;
 
+pub use dma_api;
+
+pub struct BuffConfig {
+    pub dma_mask: u64,
+    pub align: usize,
+    pub size: usize,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum BlkError {
+    #[error("Not supported")]
+    NotSupported,
+    #[error("Would block")]
+    WouldBlock,
+    #[error("No memory")]
+    NoMemory,
+    #[error("Unknown: {0}")]
+    Unknown(Box<dyn core::error::Error>),
+}
+
+impl From<BlkError> for io::ErrorKind {
+    fn from(value: BlkError) -> Self {
+        match value {
+            BlkError::NotSupported => io::ErrorKind::Unsupported,
+            BlkError::WouldBlock => io::ErrorKind::Interrupted,
+            BlkError::NoMemory => io::ErrorKind::OutOfMemory,
+            BlkError::Unknown(e) => io::ErrorKind::Other(e),
+        }
+    }
+}
+
+impl From<dma_api::DError> for BlkError {
+    fn from(value: dma_api::DError) -> Self {
+        match value {
+            dma_api::DError::NoMemory => BlkError::NoMemory,
+            e => BlkError::Unknown(Box::new(e)),
+        }
+    }
+}
+
 /// Operations that require a block storage device driver to implement.
 pub trait Interface: DriverGeneric {
     fn new_read_queue(&mut self) -> Option<Box<dyn IReadQueue>>;
+    fn new_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>>;
 
     fn irq_enable(&mut self);
     fn irq_disable(&mut self);
@@ -78,12 +119,38 @@ impl From<RequestId> for usize {
     }
 }
 
-pub trait Buffer: AsMut<[u8]> + AsRef<[u8]> + Send + 'static {}
+#[derive(Clone, Copy)]
+pub struct Buffer {
+    pub virt: *mut u8,
+    pub bus: u64,
+    pub size: usize,
+}
+
+impl Buffer {
+    pub fn copy_from_slice(&mut self, src: &[u8]) {
+        assert!(src.len() <= self.size);
+        unsafe {
+            core::ptr::copy_nonoverlapping(src.as_ptr(), self.virt, src.len());
+        }
+    }
+}
 
 pub trait IReadQueue: Send + 'static {
     fn id(&self) -> usize;
     fn num_blocks(&self) -> usize;
     fn block_size(&self) -> usize;
-    fn request_block(&mut self, block_id: usize) -> Result<RequestId, io::Error>;
-    fn check_request(&mut self, request: RequestId) -> Result<Box<dyn Buffer>, io::Error>;
+    fn buff_config(&self) -> BuffConfig;
+    fn request_block(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError>;
+    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError>;
+}
+
+/// Write queue trait for block devices.
+pub trait IWriteQueue: Send + 'static {
+    fn id(&self) -> usize;
+    fn num_blocks(&self) -> usize;
+    fn block_size(&self) -> usize;
+
+    fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError>;
+    /// Check whether a previously requested write is complete.
+    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError>;
 }
