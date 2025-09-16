@@ -247,11 +247,13 @@ pub trait IQueue: Send + 'static {
     fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError>;
 }
 
+#[derive(Clone)]
 pub struct Request<'a> {
     pub block_id: usize,
     pub kind: RequestKind<'a>,
 }
 
+#[derive(Clone)]
 pub enum RequestKind<'a> {
     Read(Buffer),
     Write(&'a [u8]),
