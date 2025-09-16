@@ -128,17 +128,7 @@ impl From<dma_api::DError> for BlkError {
 /// must implement to work with the rdrive framework. It provides methods
 /// for queue management, interrupt handling, and device lifecycle operations.
 pub trait Interface: DriverGeneric {
-    /// Create a new read queue for reading blocks from the device.
-    ///
-    /// Returns `None` if the device cannot create more read queues or if
-    /// an error occurs during queue creation.
-    fn create_read_queue(&mut self) -> Option<Box<dyn IReadQueue>>;
-
-    /// Create a new write queue for writing blocks to the device.
-    ///
-    /// Returns `None` if the device cannot create more write queues or if
-    /// an error occurs during queue creation.
-    fn create_write_queue(&mut self) -> Option<Box<dyn IWriteQueue>>;
+    fn create_queue(&mut self) -> Option<Box<dyn IQueue>>;
 
     /// Enable interrupts for the device.
     ///
@@ -193,15 +183,14 @@ impl IdList {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Event {
-    pub rx_queue: IdList,
-    pub tx_queue: IdList,
+    /// Bitmask of queue IDs that have events.
+    pub queue: IdList,
 }
 
 impl Event {
     pub const fn none() -> Self {
         Self {
-            rx_queue: IdList::none(),
-            tx_queue: IdList::none(),
+            queue: IdList::none(),
         }
     }
 }
@@ -239,7 +228,7 @@ impl Buffer {
 }
 
 /// Read queue trait for block devices.
-pub trait IReadQueue: Send + 'static {
+pub trait IQueue: Send + 'static {
     /// Get the queue identifier.
     fn id(&self) -> usize;
 
@@ -252,53 +241,18 @@ pub trait IReadQueue: Send + 'static {
     /// Get the buffer configuration for this queue.
     fn buff_config(&self) -> BuffConfig;
 
-    /// Submit a request to read a specific block.
-    fn submit_read_request(&mut self, block_id: usize, buff: Buffer)
-    -> Result<RequestId, BlkError>;
+    fn submit_request(&mut self, request: Request<'_>) -> Result<RequestId, BlkError>;
 
     /// Poll the status of a previously submitted request.
     fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError>;
-
-    /// Backward compatibility alias for `submit_read_request`.
-    #[deprecated(since = "0.1.0", note = "Use `submit_read_request` instead")]
-    fn request_block(&mut self, block_id: usize, buff: Buffer) -> Result<RequestId, BlkError> {
-        self.submit_read_request(block_id, buff)
-    }
-
-    /// Backward compatibility alias for `poll_request`.
-    #[deprecated(since = "0.1.0", note = "Use `poll_request` instead")]
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
-        self.poll_request(request)
-    }
 }
 
-/// Write queue trait for block devices.
-pub trait IWriteQueue: Send + 'static {
-    /// Get the queue identifier.
-    fn id(&self) -> usize;
+pub struct Request<'a> {
+    pub block_id: usize,
+    pub kind: RequestKind<'a>,
+}
 
-    /// Get the total number of blocks available.
-    fn num_blocks(&self) -> usize;
-
-    /// Get the size of each block in bytes.
-    fn block_size(&self) -> usize;
-
-    /// Submit a request to write data to a specific block.
-    fn submit_write_request(&mut self, block_id: usize, buff: &[u8])
-    -> Result<RequestId, BlkError>;
-
-    /// Poll the status of a previously submitted write request.
-    fn poll_request(&mut self, request: RequestId) -> Result<(), BlkError>;
-
-    /// Backward compatibility alias for `submit_write_request`.
-    #[deprecated(since = "0.1.0", note = "Use `submit_write_request` instead")]
-    fn request_block(&mut self, block_id: usize, buff: &[u8]) -> Result<RequestId, BlkError> {
-        self.submit_write_request(block_id, buff)
-    }
-
-    /// Backward compatibility alias for `poll_request`.
-    #[deprecated(since = "0.1.0", note = "Use `poll_request` instead")]
-    fn check_request(&mut self, request: RequestId) -> Result<(), BlkError> {
-        self.poll_request(request)
-    }
+pub enum RequestKind<'a> {
+    Read(Buffer),
+    Write(&'a [u8]),
 }

@@ -14,7 +14,7 @@ use alloc::{
 use dma_api::{DBuff, DVecConfig, DVecPool, Direction};
 use futures::task::AtomicWaker;
 
-use crate::{BlkError, Buffer, IReadQueue, IWriteQueue, Interface, RequestId};
+use crate::{BlkError, Buffer, IQueue, Interface, Request, RequestId, RequestKind};
 
 pub struct Block {
     inner: Arc<BlockInner>,
@@ -42,8 +42,7 @@ impl QueueWeakerMap {
 
 struct BlockInner {
     interface: UnsafeCell<Box<dyn Interface>>,
-    rx_waker_map: QueueWeakerMap,
-    tx_waker_map: QueueWeakerMap,
+    queue_waker_map: QueueWeakerMap,
 }
 
 unsafe impl Send for BlockInner {}
@@ -67,8 +66,7 @@ impl Block {
         Self {
             inner: Arc::new(BlockInner {
                 interface: UnsafeCell::new(Box::new(iterface)),
-                rx_waker_map: QueueWeakerMap::new(),
-                tx_waker_map: QueueWeakerMap::new(),
+                queue_waker_map: QueueWeakerMap::new(),
             }),
         }
     }
@@ -98,15 +96,15 @@ impl Block {
     }
 
     /// Create a new read queue with specified buffer pool capacity.
-    pub fn create_read_queue_with_capacity(&mut self, capacity: usize) -> Option<ReadQueue> {
+    pub fn create_queue_with_capacity(&mut self, capacity: usize) -> Option<CmdQueue> {
         let irq_guard = self.irq_guard();
-        let queue = self.interface().create_read_queue()?;
+        let queue = self.interface().create_queue()?;
         let queue_id = queue.id();
         let config = queue.buff_config();
-        let waker = self.inner.rx_waker_map.register(queue_id);
+        let waker = self.inner.queue_waker_map.register(queue_id);
         drop(irq_guard);
 
-        Some(ReadQueue::new(
+        Some(CmdQueue::new(
             queue,
             waker,
             DVecConfig {
@@ -120,23 +118,8 @@ impl Block {
     }
 
     /// Create a new read queue with default capacity.
-    pub fn create_read_queue(&mut self) -> Option<ReadQueue> {
-        self.create_read_queue_with_capacity(32)
-    }
-
-    /// Backward compatibility alias for `create_read_queue_with_capacity`.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use `create_read_queue_with_capacity` instead"
-    )]
-    pub fn new_read_queue_with_pool_cap(&mut self, capacity: usize) -> Option<ReadQueue> {
-        self.create_read_queue_with_capacity(capacity)
-    }
-
-    /// Backward compatibility alias for `create_read_queue`.
-    #[deprecated(since = "0.1.0", note = "Use `create_read_queue` instead")]
-    pub fn new_read_queue(&mut self) -> Option<ReadQueue> {
-        self.create_read_queue()
+    pub fn create_queue(&mut self) -> Option<CmdQueue> {
+        self.create_queue_with_capacity(32)
     }
 
     /// Get an IRQ handler for this block device.
@@ -144,23 +127,6 @@ impl Block {
         IrqHandler {
             inner: self.inner.clone(),
         }
-    }
-
-    /// Create a new write queue.
-    pub fn create_write_queue(&mut self) -> Option<WriteQueue> {
-        let irq_guard = self.irq_guard();
-        let queue = self.interface().create_write_queue()?;
-        let queue_id = queue.id();
-        let waker = self.inner.tx_waker_map.register(queue_id);
-        drop(irq_guard);
-
-        Some(WriteQueue::new(queue, waker))
-    }
-
-    /// Backward compatibility alias for `create_write_queue`.
-    #[deprecated(since = "0.1.0", note = "Use `create_write_queue` instead")]
-    pub fn new_write_queue(&mut self) -> Option<WriteQueue> {
-        self.create_write_queue()
     }
 }
 
@@ -174,40 +140,27 @@ impl IrqHandler {
     pub fn handle(&self) {
         let iface = unsafe { &mut *self.inner.interface.get() };
         let event = iface.handle_irq();
-        for id in event.rx_queue.iter() {
-            self.inner.rx_waker_map.wake(id);
-        }
-        for id in event.tx_queue.iter() {
-            self.inner.tx_waker_map.wake(id);
+        for id in event.queue.iter() {
+            self.inner.queue_waker_map.wake(id);
         }
     }
 }
 
-pub struct ReadQueue {
-    interface: Box<dyn IReadQueue>,
+pub struct CmdQueue {
+    interface: Box<dyn IQueue>,
     waker: Arc<AtomicWaker>,
     pool: DVecPool,
 }
 
-pub struct WriteQueue {
-    interface: Box<dyn IWriteQueue>,
-    waker: Arc<AtomicWaker>,
-}
-
-pub struct BlockData {
-    block_id: usize,
-    data: DBuff,
-}
-
-impl ReadQueue {
+impl CmdQueue {
     fn new(
-        iterface: Box<dyn IReadQueue>,
+        interface: Box<dyn IQueue>,
         waker: Arc<AtomicWaker>,
         config: DVecConfig,
         cap: usize,
     ) -> Self {
         Self {
-            interface: iterface,
+            interface,
             waker,
             pool: DVecPool::new_pool(config, cap),
         }
@@ -227,24 +180,47 @@ impl ReadQueue {
 
     pub fn read_blocks(
         &mut self,
-        start_blk_id: usize,
+        blk_id: usize,
         count: usize,
     ) -> impl core::future::Future<Output = Vec<Result<BlockData, BlkError>>> {
-        let block_id_ls = (start_blk_id..start_blk_id + count).collect();
+        let block_id_ls = (blk_id..blk_id + count).collect();
         ReadFuture::new(self, block_id_ls)
     }
 
-    pub fn read_blocks_blocking(
+    /// Write multiple blocks. Caller provides owned Vec<u8> buffers for each block.
+    pub async fn write_blocks(
         &mut self,
         start_blk_id: usize,
-        count: usize,
-    ) -> Vec<Result<BlockData, BlkError>> {
-        spin_on::spin_on(self.read_blocks(start_blk_id, count))
+        data: &[u8],
+    ) -> Vec<Result<(), BlkError>> {
+        let block_size = self.block_size();
+        assert_eq!(data.len() % block_size, 0);
+        let count = data.len() / block_size;
+        let mut block_vecs = Vec::with_capacity(count);
+        for i in 0..count {
+            let blk_id = start_blk_id + i;
+            let blk_data = &data[i * block_size..(i + 1) * block_size];
+            block_vecs.push((blk_id, blk_data));
+        }
+        WriteFuture::new(self, block_vecs).await
+    }
+
+    pub fn write_blocks_blocking(
+        &mut self,
+        start_blk_id: usize,
+        data: &[u8],
+    ) -> Vec<Result<(), BlkError>> {
+        spin_on::spin_on(self.write_blocks(start_blk_id, data))
     }
 }
 
+pub struct BlockData {
+    block_id: usize,
+    data: DBuff,
+}
+
 pub struct ReadFuture<'a> {
-    queue: &'a mut ReadQueue,
+    queue: &'a mut CmdQueue,
     blk_ls: Vec<usize>,
     requested: BTreeMap<usize, Option<DBuff>>,
     map: BTreeMap<usize, RequestId>,
@@ -252,7 +228,7 @@ pub struct ReadFuture<'a> {
 }
 
 impl<'a> ReadFuture<'a> {
-    fn new(queue: &'a mut ReadQueue, blk_ls: Vec<usize>) -> Self {
+    fn new(queue: &'a mut CmdQueue, blk_ls: Vec<usize>) -> Self {
         Self {
             queue,
             blk_ls,
@@ -283,14 +259,16 @@ impl<'a> core::future::Future for ReadFuture<'a> {
 
             match this.queue.pool.alloc() {
                 Ok(buff) => {
-                    match this.queue.interface.submit_read_request(
-                        blk_id,
-                        Buffer {
-                            virt: buff.as_ptr(),
-                            bus: buff.bus_addr(),
-                            size: buff.len(),
-                        },
-                    ) {
+                    let kind = RequestKind::Read(Buffer {
+                        virt: buff.as_ptr(),
+                        bus: buff.bus_addr(),
+                        size: buff.len(),
+                    });
+
+                    match this.queue.interface.submit_request(Request {
+                        block_id: blk_id,
+                        kind,
+                    }) {
                         Ok(req_id) => {
                             this.map.insert(blk_id, req_id);
                             this.requested.insert(blk_id, Some(buff));
@@ -346,52 +324,8 @@ impl<'a> core::future::Future for ReadFuture<'a> {
     }
 }
 
-impl WriteQueue {
-    fn new(interface: Box<dyn IWriteQueue>, waker: Arc<AtomicWaker>) -> Self {
-        Self { interface, waker }
-    }
-
-    pub fn id(&self) -> usize {
-        self.interface.id()
-    }
-
-    pub fn num_blocks(&self) -> usize {
-        self.interface.num_blocks()
-    }
-
-    pub fn block_size(&self) -> usize {
-        self.interface.block_size()
-    }
-
-    /// Write multiple blocks. Caller provides owned Vec<u8> buffers for each block.
-    pub async fn write_blocks(
-        &mut self,
-        start_blk_id: usize,
-        data: &[u8],
-    ) -> Vec<Result<(), BlkError>> {
-        let block_size = self.block_size();
-        assert_eq!(data.len() % block_size, 0);
-        let count = data.len() / block_size;
-        let mut block_vecs = Vec::with_capacity(count);
-        for i in 0..count {
-            let blk_id = start_blk_id + i;
-            let blk_data = &data[i * block_size..(i + 1) * block_size];
-            block_vecs.push((blk_id, blk_data));
-        }
-        WriteFuture::new(self, block_vecs).await
-    }
-
-    pub fn write_blocks_blocking(
-        &mut self,
-        start_blk_id: usize,
-        data: &[u8],
-    ) -> Vec<Result<(), BlkError>> {
-        spin_on::spin_on(self.write_blocks(start_blk_id, data))
-    }
-}
-
 pub struct WriteFuture<'a, 'b> {
-    queue: &'a mut WriteQueue,
+    queue: &'a mut CmdQueue,
     req_ls: Vec<(usize, &'b [u8])>,
     requested: BTreeSet<usize>,
     map: BTreeMap<usize, RequestId>,
@@ -399,7 +333,7 @@ pub struct WriteFuture<'a, 'b> {
 }
 
 impl<'a, 'b> WriteFuture<'a, 'b> {
-    fn new(queue: &'a mut WriteQueue, req_ls: Vec<(usize, &'b [u8])>) -> Self {
+    fn new(queue: &'a mut CmdQueue, req_ls: Vec<(usize, &'b [u8])>) -> Self {
         Self {
             queue,
             req_ls,
@@ -427,7 +361,10 @@ impl<'a, 'b> core::future::Future for WriteFuture<'a, 'b> {
                 continue;
             }
 
-            match this.queue.interface.submit_write_request(blk_id, buff) {
+            match this.queue.interface.submit_request(Request {
+                block_id: blk_id,
+                kind: RequestKind::Write(buff),
+            }) {
                 Ok(req_id) => {
                     this.map.insert(blk_id, req_id);
                     this.requested.insert(blk_id);
