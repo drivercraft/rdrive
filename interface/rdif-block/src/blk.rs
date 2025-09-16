@@ -1,5 +1,6 @@
 use core::{
     cell::UnsafeCell,
+    fmt::Debug,
     ops::{Deref, DerefMut},
 };
 
@@ -64,6 +65,14 @@ impl Block {
         }
     }
 
+    pub fn open(&mut self) -> Result<(), rdif_base::KError> {
+        self.interface().open()
+    }
+
+    pub fn close(&mut self) -> Result<(), rdif_base::KError> {
+        self.interface().close()
+    }
+
     #[allow(clippy::mut_from_ref)]
     fn interface(&self) -> &mut Box<dyn Interface> {
         unsafe { &mut *self.inner.interface.get() }
@@ -88,6 +97,12 @@ impl Block {
         drop(irq_guard);
 
         Some(ReadQueue::new(queue, waker))
+    }
+
+    pub fn irq_handler(&self) -> IrqHandler {
+        IrqHandler {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -137,46 +152,52 @@ impl ReadQueue {
         self.iterface.check_request(req)
     }
 
-    pub fn read_blocks(
+    pub async fn read_blocks(
         &mut self,
         block_id_ls: impl AsRef<[usize]>,
-    ) -> impl Future<Output = Result<Vec<BlockData>, io::Error>> + '_ {
+    ) -> Result<Vec<BlockData>, io::Error> {
         let block_id_ls = block_id_ls.as_ref().to_vec();
-        let mut req_ls = Vec::with_capacity(block_id_ls.len());
+        let mut out = Vec::with_capacity(block_id_ls.len());
 
-        let mut err = None;
+        let mut remain_ids = &block_id_ls[..];
 
-        for &id in &block_id_ls {
-            match self.request_block(id) {
-                Ok(r) => req_ls.push(r),
-                Err(e) => {
-                    err = Some(e);
-                    break;
+        while !remain_ids.is_empty() {
+            let mut req_blk_map = BTreeMap::new();
+            for &id in remain_ids {
+                match self.request_block(id) {
+                    Ok(v) => {
+                        req_blk_map.insert(v, id);
+                    }
+                    Err(e) => {
+                        if matches!(e.kind, io::ErrorKind::Interrupted) {
+                            break;
+                        } else {
+                            return Err(e);
+                        }
+                    }
                 }
             }
-        }
 
-        async move {
-            if let Some(e) = err {
-                return Err(e);
-            }
-
-            ReadFuture {
+            let res = ReadFuture {
                 queue: self,
-                blk_id_ls: block_id_ls,
-                req_id_ls: req_ls,
+                req_blk_map,
                 completed: BTreeMap::new(),
             }
-            .await
+            .await?;
+
+            remain_ids = &remain_ids[res.len()..];
+
+            out.extend(res);
         }
+
+        Ok(out)
     }
 }
 
 pub struct ReadFuture<'a> {
     queue: &'a mut ReadQueue,
-    blk_id_ls: Vec<usize>,
-    req_id_ls: Vec<RequestId>,
-    completed: BTreeMap<usize, Box<dyn Buffer>>,
+    req_blk_map: BTreeMap<RequestId, usize>,
+    completed: BTreeMap<RequestId, Box<dyn Buffer>>,
 }
 
 impl<'a> core::future::Future for ReadFuture<'a> {
@@ -188,11 +209,11 @@ impl<'a> core::future::Future for ReadFuture<'a> {
     ) -> core::task::Poll<Self::Output> {
         let this = self.get_mut();
 
-        for (blk_id, req_id) in this.blk_id_ls.iter().zip(this.req_id_ls.iter()) {
-            if !this.completed.contains_key(blk_id) {
+        for (req_id, _) in this.req_blk_map.iter() {
+            if !this.completed.contains_key(req_id) {
                 match this.queue.check_request(*req_id) {
                     Ok(buf) => {
-                        this.completed.insert(*blk_id, buf);
+                        this.completed.insert(*req_id, buf);
                     }
                     Err(e) => {
                         if matches!(e.kind, io::ErrorKind::Interrupted) {
@@ -206,20 +227,31 @@ impl<'a> core::future::Future for ReadFuture<'a> {
             }
         }
 
-        core::task::Poll::Ready(Ok(this
-            .blk_id_ls
-            .iter()
-            .map(|id| BlockData {
-                block_id: *id,
-                data: this.completed.remove(id).unwrap(),
-            })
-            .collect()))
+        let mut out = Vec::with_capacity(this.completed.len());
+        for (req_id, blk_id) in this.req_blk_map.iter() {
+            let buf = this.completed.remove(req_id).unwrap();
+            out.push(BlockData {
+                block_id: *blk_id,
+                data: buf,
+            });
+        }
+
+        core::task::Poll::Ready(Ok(out))
     }
 }
 
 pub struct BlockData {
     block_id: usize,
     data: Box<dyn Buffer>,
+}
+
+impl Debug for BlockData {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BlockData")
+            .field("block_id", &self.block_id)
+            .field("data", &self.data.as_ref().as_ref())
+            .finish()
+    }
 }
 
 impl BlockData {

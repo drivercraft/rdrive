@@ -15,5 +15,5 @@ futures = {version = "0.3", features = ["alloc"], default-features = false}
 rdif-base = {workspace = true}
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
-dma-api = {path="/home/zhourui/opensource/dma-api", features = ["alloc"]}
+dma-api = {path = "/home/zhourui/opensource/dma-api", features = ["alloc"]}
+tokio = {version = "1", features = ["full"]}
