@@ -1,6 +1,6 @@
 use core::any::Any;
 
-pub use rdif_base::DriverGeneric;
+pub use rdif_base::{AsAny, DriverGeneric};
 
 use crate::Descriptor;
 
