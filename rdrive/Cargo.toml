@@ -7,7 +7,7 @@ keywords = ["os", "driver"]
 license = "MIT"
 name = "rdrive"
 repository.workspace = true
-version = "0.16.1"
+version = "0.17.0"
 readme = "../README.md"
 
 [dependencies]
@@ -19,7 +19,7 @@ thiserror = {version = "2", default-features = false}
 
 rdif-base = {workspace = true}
 rdif-intc = { version = "0.12", path = "../interface/rdif-intc"}
-rdif-block = {version = "0.5", path = "../interface/rdif-block"}
+rdif-block = { version = "0.6", path = "../interface/rdif-block"}
 rdif-clk = {version = "0.4", path = "../interface/rdif-clk"}
 rdif-power = {version = "0.6", path = "../interface/rdif-power"}
 rdif-serial = {version = "0.4", path = "../interface/rdif-serial"}

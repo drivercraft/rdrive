@@ -13,6 +13,7 @@ use alloc::{
 };
 use dma_api::{DBuff, DVecConfig, DVecPool, Direction};
 use futures::task::AtomicWaker;
+use rdif_base::{AsAny, DriverGeneric};
 
 use crate::{BlkError, Buffer, IQueue, Interface, Request, RequestId, RequestKind};
 
@@ -61,6 +62,16 @@ impl<'a> Drop for IrqGuard<'a> {
     }
 }
 
+impl DriverGeneric for Block {
+    fn open(&mut self) -> Result<(), rdif_base::KError> {
+        self.interface().open()
+    }
+
+    fn close(&mut self) -> Result<(), rdif_base::KError> {
+        self.interface().close()
+    }
+}
+
 impl Block {
     pub fn new(iterface: impl Interface) -> Self {
         Self {
@@ -71,12 +82,22 @@ impl Block {
         }
     }
 
-    pub fn open(&mut self) -> Result<(), rdif_base::KError> {
-        self.interface().open()
+    pub fn typed_ref<T: Interface>(&self) -> Option<&T> {
+        self.raw_any()?.downcast_ref()
+    }
+    pub fn typed_mut<T: Interface>(&mut self) -> Option<&mut T> {
+        self.raw_any_mut()?.downcast_mut()
     }
 
-    pub fn close(&mut self) -> Result<(), rdif_base::KError> {
-        self.interface().close()
+    pub fn raw_any(&self) -> Option<&dyn core::any::Any> {
+        let interface = unsafe { &*self.inner.interface.get() };
+        Some(<dyn Interface as AsAny>::as_any(interface.as_ref()))
+    }
+    
+    pub fn raw_any_mut(&mut self) -> Option<&mut dyn core::any::Any> {
+        Some(<dyn Interface as AsAny>::as_any_mut(
+            self.interface().as_mut(),
+        ))
     }
 
     #[allow(clippy::mut_from_ref)]
