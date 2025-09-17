@@ -1,11 +1,15 @@
 use core::any::Any;
 
-pub use rdif_base::DriverGeneric;
+pub use rdif_base::{AsAny, DriverGeneric};
 
 use crate::Descriptor;
 
 #[macro_use]
 mod _macros;
+
+pub mod block;
+
+pub use block::Block;
 
 pub struct Empty;
 
@@ -55,4 +59,4 @@ def_driver_rdif!(Clk);
 def_driver_rdif!(Power);
 def_driver_rdif!(Systick);
 def_driver_rdif!(Serial);
-def_driver_rdif!(Block);
+// def_driver_rdif!(Block);
