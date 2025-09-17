@@ -11,11 +11,11 @@ version = "0.6.0"
 
 [dependencies]
 cfg-if = "1.0"
-dma-api = {path = "/home/zhourui/opensource/dma-api", features = ["alloc"]}
+dma-api = {version = "0.5", features = ["alloc"]}
 futures = {version = "0.3", features = ["alloc"], default-features = false}
 rdif-base = {workspace = true}
-thiserror = {version = "2", default-features = false}
 spin_on = "0.1"
+thiserror = {version = "2", default-features = false}
 
 [dev-dependencies]
 tokio = {version = "1", features = ["full"]}
