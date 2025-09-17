@@ -187,6 +187,14 @@ impl CmdQueue {
         ReadFuture::new(self, block_id_ls)
     }
 
+    pub fn read_blocks_blocking(
+        &mut self,
+        blk_id: usize,
+        count: usize,
+    ) -> Vec<Result<BlockData, BlkError>> {
+        spin_on::spin_on(self.read_blocks(blk_id, count))
+    }
+
     /// Write multiple blocks. Caller provides owned Vec<u8> buffers for each block.
     pub async fn write_blocks(
         &mut self,
