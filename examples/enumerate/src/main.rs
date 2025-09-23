@@ -3,7 +3,7 @@
 use std::ptr::NonNull;
 
 use log::debug;
-use rdrive::{driver, get_list};
+use rdrive::get_list;
 
 use crate::intc::IrqTest;
 

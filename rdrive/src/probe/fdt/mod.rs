@@ -1,13 +1,11 @@
-use alloc::{boxed::Box, collections::BTreeMap, string::ToString, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use core::ptr::NonNull;
 
 pub use fdt_parser::*;
-// pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
-    Descriptor, DeviceId, PlatformDevice, driver,
+    Descriptor, DeviceId, PlatformDevice,
     error::DriverError,
-    get,
     probe::OnProbeError,
     register::{DriverRegisterData, ProbeKind},
 };
