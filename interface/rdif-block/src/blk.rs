@@ -189,21 +189,22 @@ impl CmdQueue {
         self.interface.block_size()
     }
 
+    /// Read multiple blocks. Returns a future that resolves to a vector of results.
     pub fn read_blocks(
         &mut self,
         blk_id: usize,
-        count: usize,
+        blk_count: usize,
     ) -> impl core::future::Future<Output = Vec<Result<BlockData, BlkError>>> {
-        let block_id_ls = (blk_id..blk_id + count).collect();
+        let block_id_ls = (blk_id..blk_id + blk_count).collect();
         ReadFuture::new(self, block_id_ls)
     }
 
     pub fn read_blocks_blocking(
         &mut self,
         blk_id: usize,
-        count: usize,
+        blk_count: usize,
     ) -> Vec<Result<BlockData, BlkError>> {
-        spin_on::spin_on(self.read_blocks(blk_id, count))
+        spin_on::spin_on(self.read_blocks(blk_id, blk_count))
     }
 
     /// Write multiple blocks. Caller provides owned Vec<u8> buffers for each block.

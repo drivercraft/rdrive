@@ -2,6 +2,8 @@
 
 extern crate alloc;
 
+use core::ops::{Deref, DerefMut};
+
 use alloc::boxed::Box;
 pub use rdif_base::{DriverGeneric, KError, io};
 
@@ -218,12 +220,17 @@ pub struct Buffer {
     pub size: usize,
 }
 
-impl Buffer {
-    pub fn copy_from_slice(&mut self, src: &[u8]) {
-        assert!(src.len() <= self.size);
-        unsafe {
-            core::ptr::copy_nonoverlapping(src.as_ptr(), self.virt, src.len());
-        }
+impl Deref for Buffer {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { core::slice::from_raw_parts(self.virt, self.size) }
+    }
+}
+
+impl DerefMut for Buffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { core::slice::from_raw_parts_mut(self.virt, self.size) }
     }
 }
 
