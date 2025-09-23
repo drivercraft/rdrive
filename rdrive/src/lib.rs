@@ -189,16 +189,16 @@ pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
 ///     fn close(&mut self) -> Result<(), rdrive::KError> { todo!() }
 /// }
 ///
-/// impl rdrive::driver::serial::Interface for UartDriver {
+/// impl rdif_serial::Interface for UartDriver {
 ///     fn handle_irq(&mut self) { todo!() }
-///     fn take_tx(&mut self) -> Option<Box<(dyn rdrive::driver::serial::io::Write + 'static)>> { todo!() }
-///     fn take_rx(&mut self) -> Option<Box<(dyn rdrive::driver::serial::io::Read + 'static)>> { todo!() }
+///     fn take_tx(&mut self) -> Option<Box<(dyn rdif_serial::io::Write + 'static)>> { todo!() }
+///     fn take_rx(&mut self) -> Option<Box<(dyn rdif_serial::io::Read + 'static)>> { todo!() }
 /// }
 ///
 /// // Define probe function
 /// fn probe_uart(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), OnProbeError> {
 ///     // Implement specific device probing logic
-///     dev.register_serial(UartDriver{});
+///     dev.register(rdif_serial::Serial::new(UartDriver{}));
 ///     Ok(())
 /// }
 ///

@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
+use rdif_base::def_driver;
 pub use rdif_base::io;
 pub use rdif_base::io::async_trait;
 pub use rdif_base::{DriverGeneric, KError};
@@ -54,3 +55,5 @@ impl From<SerialError> for io::ErrorKind {
         }
     }
 }
+
+def_driver!(Serial, Interface);

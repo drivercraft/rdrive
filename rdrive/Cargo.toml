@@ -20,3 +20,7 @@ thiserror = {version = "2", default-features = false}
 
 rdif-base = {workspace = true}
 rdrive-macros = {version = "0.4", path = "../rdrive-macros"}
+
+[dev-dependencies]
+rdif-intc = { version = "0.12", path = "../interface/rdif-intc"}
+rdif-serial = { version = "0.4", path = "../interface/rdif-serial"}

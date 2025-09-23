@@ -79,7 +79,8 @@ impl DeviceContainer {
 #[cfg(test)]
 mod tests {
 
-    use crate::driver::{DriverGeneric, Empty, Intc, intc};
+    use crate::driver::{DriverGeneric, Empty};
+    use rdif_intc::*;
 
     use super::*;
 
@@ -170,16 +171,16 @@ mod tests {
     }
 
     impl crate::DriverGeneric for IrqTest {
-        fn open(&mut self) -> Result<(), rdif_clk::KError> {
+        fn open(&mut self) -> Result<(), KError> {
             Ok(())
         }
 
-        fn close(&mut self) -> Result<(), rdif_clk::KError> {
+        fn close(&mut self) -> Result<(), KError> {
             Ok(())
         }
     }
 
-    impl intc::Interface for IrqTest {}
+    impl Interface for IrqTest {}
 
     #[test]
     fn test_inner_type() {
