@@ -1,7 +1,7 @@
 use log::debug;
+use rdif_intc::*;
 use rdrive::{
     PlatformDevice,
-    driver::intc::*,
     probe::OnProbeError,
     register::{DriverRegister, FdtInfo, ProbeKind, ProbeLevel, ProbePriority},
 };
@@ -31,7 +31,7 @@ impl rdrive::DriverGeneric for IrqTest {
 }
 
 impl Interface for IrqTest {
-    fn parse_dtb_fn(&self) -> Option<rdrive::driver::intc::FuncFdtParseConfig> {
+    fn parse_dtb_fn(&self) -> Option<rdif_intc::FuncFdtParseConfig> {
         Some(fdt_parse)
     }
 }
@@ -50,7 +50,7 @@ fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeE
         fdt.node.name(),
         plat_dev.descriptor.irq_parent,
     );
-    plat_dev.register_intc(IrqTest {});
+    plat_dev.register(IrqTest {});
 
     Ok(())
 }

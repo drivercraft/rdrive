@@ -13,7 +13,7 @@ pub struct Descriptor {
     pub(crate) device_id: DeviceId,
     pub name: &'static str,
     pub irq_parent: Option<DeviceId>,
-    pub irqs: Vec<IrqConfig>,
+    // pub irqs: Vec<IrqConfig>,
 }
 
 impl Descriptor {

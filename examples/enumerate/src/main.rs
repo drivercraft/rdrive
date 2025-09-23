@@ -8,9 +8,9 @@ use rdrive::{driver, get_list};
 use crate::intc::IrqTest;
 
 pub mod blk;
-pub mod clk;
+// pub mod clk;
 pub mod intc;
-pub mod timer;
+// pub mod timer;
 
 fn main() {
     env_logger::builder()
@@ -25,22 +25,20 @@ fn main() {
     .unwrap();
 
     rdrive::register_add(intc::register());
-    rdrive::register_add(timer::register());
-    rdrive::register_add(clk::register());
+    // rdrive::register_add(timer::register());
+    // rdrive::register_add(clk::register());
     rdrive::register_add(blk::register());
 
     rdrive::probe_pre_kernel().unwrap();
 
-    let intc_list = get_list::<driver::Intc>();
+    let intc_list = get_list::<rdif_intc::Intc>();
     for intc in intc_list {
         println!("intc: {:?}", intc.descriptor());
 
         let g = intc.lock().unwrap();
 
         let t = g.typed_ref::<IrqTest>();
-        debug!("intc: {:?}", g.type_name());
-        
-
+        debug!("intc: {:?}", intc.descriptor().name);
 
         assert!(t.is_some(), "Intc should be [IrqTest]");
     }

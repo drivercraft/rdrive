@@ -1,8 +1,9 @@
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
+use rdif_base::DriverGeneric;
+
 use crate::{
     Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError, Platform,
-    driver::Class,
     error::DriverError,
     probe::{EnumSystem, EnumSystemTrait, ProbeError, ToProbeFunc},
     register::{DriverRegisterData, RegisterContainer},
@@ -44,18 +45,18 @@ pub(crate) struct DeviceContainer {
 }
 
 impl DeviceContainer {
-    pub fn insert<T: Class>(&mut self, descriptor: Descriptor, device: T) {
+    pub fn insert<T: DriverGeneric>(&mut self, descriptor: Descriptor, device: T) {
         self.devices
             .insert(descriptor.device_id, DeviceOwner::new(descriptor, device));
     }
 
-    pub fn get_typed<T: Class>(&self, id: DeviceId) -> Result<Device<T>, GetDeviceError> {
+    pub fn get_typed<T: DriverGeneric>(&self, id: DeviceId) -> Result<Device<T>, GetDeviceError> {
         let dev = self.devices.get(&id).ok_or(GetDeviceError::NotFound)?;
 
         dev.weak()
     }
 
-    pub fn get_one<T: Class>(&self) -> Option<Device<T>> {
+    pub fn get_one<T: DriverGeneric>(&self) -> Option<Device<T>> {
         for dev in self.devices.values() {
             if let Ok(val) = dev.weak::<T>() {
                 return Some(val);
@@ -64,7 +65,7 @@ impl DeviceContainer {
         None
     }
 
-    pub fn devices<T: Class>(&self) -> Vec<Device<T>> {
+    pub fn devices<T: DriverGeneric>(&self) -> Vec<Device<T>> {
         let mut result = Vec::new();
         for dev in self.devices.values() {
             if let Ok(val) = dev.weak::<T>() {
@@ -78,7 +79,7 @@ impl DeviceContainer {
 #[cfg(test)]
 mod tests {
 
-    use crate::driver::{Class, DriverGeneric, Empty, Intc, intc};
+    use crate::driver::{DriverGeneric, Empty, Intc, intc};
 
     use super::*;
 
@@ -100,8 +101,6 @@ mod tests {
             Ok(())
         }
     }
-
-    impl Class for DeviceTest {}
 
     #[test]
     fn test_device_container() {

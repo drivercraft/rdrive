@@ -1,11 +1,13 @@
 #![no_std]
 
+#[macro_use]
 extern crate alloc;
+#[macro_use]
+extern crate log;
 
 use core::ptr::NonNull;
-pub use fdt_parser::Phandle;
 
-use log::warn;
+pub use fdt_parser::Phandle;
 use register::{DriverRegister, DriverRegisterData, ProbeLevel};
 use spin::Mutex;
 
@@ -30,7 +32,6 @@ pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;
 
 use crate::{
-    driver::Class,
     error::DriverError,
     probe::{EnumSystem, OnProbeError},
 };
@@ -132,15 +133,15 @@ pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
     probe_with(unregistered.iter(), stop_if_fail)
 }
 
-pub fn get_list<T: Class>() -> Vec<Device<T>> {
+pub fn get_list<T: DriverGeneric>() -> Vec<Device<T>> {
     read(|manager| manager.dev_container.devices())
 }
 
-pub fn get<T: Class>(id: DeviceId) -> Result<Device<T>, GetDeviceError> {
+pub fn get<T: DriverGeneric>(id: DeviceId) -> Result<Device<T>, GetDeviceError> {
     read(|manager| manager.dev_container.get_typed(id))
 }
 
-pub fn get_one<T: Class>() -> Option<Device<T>> {
+pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
     read(|manager| manager.dev_container.get_one())
 }
 

@@ -1,9 +1,8 @@
 use alloc::{boxed::Box, collections::BTreeMap, string::ToString, vec::Vec};
 use core::ptr::NonNull;
-use log::{debug, warn};
 
 pub use fdt_parser::*;
-pub use rdif_intc::FuncFdtParseConfig;
+// pub use rdif_intc::FuncFdtParseConfig;
 
 use crate::{
     Descriptor, DeviceId, PlatformDevice, driver,
@@ -28,6 +27,16 @@ impl<'a> FdtInfo<'a> {
 
     pub fn find_clk_by_name(&'a self, name: &str) -> Option<ClockRef<'a>> {
         self.node.clocks().find(|clock| clock.name == Some(name))
+    }
+
+    pub fn interrupts(&self) -> Vec<Vec<u32>> {
+        let mut out = Vec::new();
+        if let Some(raws) = self.node.interrupts() {
+            for raw in raws {
+                out.push(raw.collect());
+            }
+        }
+        out
     }
 }
 
@@ -73,39 +82,39 @@ impl super::EnumSystemTrait for System {
 
             let probe_fn = move || {
                 debug!("Probe [{}]->[{}]", register.node.name, register.name);
-                let mut irqs = Vec::new();
+                // let mut irqs = Vec::new();
 
-                if let Some(parent) = irq_parent
-                    && let Some(raws) = register.node.interrupts()
-                {
-                    match get::<driver::Intc>(parent) {
-                        Ok(intc) => {
-                            let parse_fn = { intc.lock().unwrap().parse_dtb_fn() }.ok_or(
-                                OnProbeError::Fdt(
-                                    "irq parent does not have irq parse fn".to_string(),
-                                ),
-                            )?;
+                // if let Some(parent) = irq_parent
+                //     && let Some(raws) = register.node.interrupts()
+                // {
+                //     match get::<driver::Intc>(parent) {
+                //         Ok(intc) => {
+                //             let parse_fn = { intc.lock().unwrap().parse_dtb_fn() }.ok_or(
+                //                 OnProbeError::Fdt(
+                //                     "irq parent does not have irq parse fn".to_string(),
+                //                 ),
+                //             )?;
 
-                            for raw in raws {
-                                if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
-                                    irqs.push(irq);
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            warn!(
-                                "[{}] parent irq driver does not exist, can not parse irq config",
-                                register.name
-                            );
-                        }
-                    }
-                }
+                //             for raw in raws {
+                //                 if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
+                //                     irqs.push(irq);
+                //                 }
+                //             }
+                //         }
+                //         Err(_) => {
+                //             warn!(
+                //                 "[{}] parent irq driver does not exist, can not parse irq config",
+                //                 register.name
+                //             );
+                //         }
+                //     }
+                // }
 
                 let descriptor = Descriptor {
                     name: register.name,
                     device_id: id,
                     irq_parent,
-                    irqs: irqs.clone(),
+                    // irqs: irqs.clone(),
                 };
 
                 (register.on_probe)(

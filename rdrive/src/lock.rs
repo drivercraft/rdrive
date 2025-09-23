@@ -8,25 +8,26 @@ use alloc::{
     boxed::Box,
     sync::{Arc, Weak},
 };
+use rdif_base::DriverGeneric;
 
-use crate::{Descriptor, Pid, driver::Class, get_pid};
+use crate::{Descriptor, Pid, get_pid};
 
 pub struct DeviceOwner {
     lock: Arc<LockInner>,
 }
 
 impl DeviceOwner {
-    pub fn new<T: Class>(descriptor: Descriptor, device: T) -> Self {
+    pub fn new<T: DriverGeneric>(descriptor: Descriptor, device: T) -> Self {
         Self {
             lock: Arc::new(LockInner::new(descriptor, Box::into_raw(Box::new(device)))),
         }
     }
 
-    pub fn weak<T: Class>(&self) -> Result<Device<T>, GetDeviceError> {
+    pub fn weak<T: DriverGeneric>(&self) -> Result<Device<T>, GetDeviceError> {
         Device::new(&self.lock)
     }
 
-    pub fn is<T: Class>(&self) -> bool {
+    pub fn is<T: DriverGeneric>(&self) -> bool {
         unsafe { &*self.lock.ptr }.is::<T>()
     }
 }
@@ -180,6 +181,10 @@ impl<T: Any> Device<T> {
         &self.descriptor
     }
 
+    pub fn type_name(&self) -> &'static str {
+        core::any::type_name::<T>()
+    }
+
     /// 强制获取设备
     ///
     /// # Safety
@@ -189,7 +194,7 @@ impl<T: Any> Device<T> {
     }
 }
 
-impl<T: Class> Device<T> {
+impl<T: DriverGeneric> Device<T> {
     pub fn downcast<T2: 'static>(&self) -> Result<Device<T2>, GetDeviceError> {
         let lock = self.lock.upgrade().ok_or(GetDeviceError::DeviceReleased)?;
 

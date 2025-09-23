@@ -1,4 +1,5 @@
 use core::{
+    any::Any,
     cell::UnsafeCell,
     fmt::Debug,
     ops::{Deref, DerefMut},
@@ -13,7 +14,7 @@ use alloc::{
 };
 use dma_api::{DBuff, DVecConfig, DVecPool, Direction};
 use futures::task::AtomicWaker;
-use rdif_base::{AsAny, DriverGeneric};
+use rdif_base::DriverGeneric;
 
 use crate::{BlkError, Buffer, IQueue, Interface, Request, RequestId, RequestKind};
 
@@ -83,21 +84,10 @@ impl Block {
     }
 
     pub fn typed_ref<T: Interface>(&self) -> Option<&T> {
-        self.raw_any()?.downcast_ref()
+        (self.inner.as_ref() as &dyn Any).downcast_ref()
     }
     pub fn typed_mut<T: Interface>(&mut self) -> Option<&mut T> {
-        self.raw_any_mut()?.downcast_mut()
-    }
-
-    pub fn raw_any(&self) -> Option<&dyn core::any::Any> {
-        let interface = unsafe { &*self.inner.interface.get() };
-        Some(<dyn Interface as AsAny>::as_any(interface.as_ref()))
-    }
-    
-    pub fn raw_any_mut(&mut self) -> Option<&mut dyn core::any::Any> {
-        Some(<dyn Interface as AsAny>::as_any_mut(
-            self.interface().as_mut(),
-        ))
+        (self.interface() as &mut dyn Any).downcast_mut()
     }
 
     #[allow(clippy::mut_from_ref)]
