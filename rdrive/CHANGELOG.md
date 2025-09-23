@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.0...rdrive-v0.18.1) - 2025-09-23
+
+### Other
+
+- *(rdif-block)* release v0.6.1 ([#17](https://github.com/drivercraft/rdrive/pull/17))
+
 ## [0.16.0](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.2...rdrive-v0.16.0) - 2025-06-27
 
 ### Added
