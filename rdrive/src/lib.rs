@@ -34,6 +34,7 @@ pub use rdrive_macros::*;
 use crate::{
     error::DriverError,
     probe::{EnumSystem, OnProbeError},
+    register::RegisterId,
 };
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
@@ -112,25 +113,35 @@ fn probe_with<'a>(
 fn probe_one(one: &DriverRegisterData) -> Result<(), ProbeError> {
     let to_probe = edit(|manager| manager.to_unprobed(one))?;
     for to_probe in to_probe {
-        match to_probe() {
-            Ok(_) => {
-                edit(|manager| manager.registers.set_probed(one.id));
-                return Ok(());
-            }
-            Err(OnProbeError::NotMatch) => {
-                continue; // Not a match, skip to the next probe
-            }
-            Err(e) => {
-                return Err(e.into());
-            }
-        }
+        handle_probe_one_result(one.id, to_probe())?;
     }
     Ok(())
 }
 
+fn handle_probe_one_result(
+    register_id: RegisterId,
+    res: Result<(), OnProbeError>,
+) -> Result<(), ProbeError> {
+    match res {
+        Ok(_) => {
+            edit(|manager| manager.registers.set_probed(register_id));
+            Ok(())
+        }
+        Err(OnProbeError::NotMatch) => {
+            Ok(()) // Not a match, skip to the next probe
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
 pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
     let unregistered = edit(|manager| manager.unregistered())?;
-    probe_with(unregistered.iter(), stop_if_fail)
+    probe_with(unregistered.iter(), stop_if_fail)?;
+
+    debug!("probe pci devices");
+    probe::pci::probe_with(unregistered.iter(), stop_if_fail)?;
+
+    Ok(())
 }
 
 pub fn get_list<T: DriverGeneric>() -> Vec<Device<T>> {

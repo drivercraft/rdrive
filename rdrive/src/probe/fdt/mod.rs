@@ -168,20 +168,21 @@ impl System {
             let node_compatibles = node.compatibles().collect::<Vec<_>>();
 
             for probe in register.register.probe_kinds {
-                match probe {
-                    &ProbeKind::Fdt {
-                        compatibles,
-                        on_probe,
-                    } => {
-                        for campatible in &node_compatibles {
-                            if compatibles.contains(campatible) {
-                                out.push(ProbeFdtInfo {
-                                    name: register.register.name,
-                                    node: node.clone(),
-                                    on_probe,
-                                });
-                            }
-                        }
+                let &ProbeKind::Fdt {
+                    compatibles,
+                    on_probe,
+                } = probe
+                else {
+                    continue;
+                };
+
+                for campatible in &node_compatibles {
+                    if compatibles.contains(campatible) {
+                        out.push(ProbeFdtInfo {
+                            name: register.register.name,
+                            node: node.clone(),
+                            on_probe,
+                        });
                     }
                 }
             }

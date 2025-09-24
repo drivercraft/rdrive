@@ -55,6 +55,9 @@ pub enum ProbeKind {
         compatibles: &'static [&'static str],
         on_probe: fdt::FnOnProbe,
     },
+    Pci{
+        
+    }
 }
 
 #[repr(C)]

@@ -11,6 +11,7 @@ use fdt_parser::FdtError;
 use crate::{Platform, error::DriverError, register::DriverRegisterData};
 
 pub mod fdt;
+pub mod pci;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProbeError {
