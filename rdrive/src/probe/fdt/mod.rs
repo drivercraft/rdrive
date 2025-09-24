@@ -43,6 +43,8 @@ pub type FnOnProbe = fn(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<()
 pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
     fdt_addr: NonNull<u8>,
+    // keep unique by driver register name in FDT mode
+    probed_names: BTreeMap<&'static str, ()>,
 }
 
 unsafe impl Send for System {}
@@ -67,6 +69,10 @@ impl super::EnumSystemTrait for System {
         let mut out: Vec<ToProbeFunc> = Vec::new();
 
         for register in registers {
+            if self.probed_names.contains_key(register.name) {
+                // skip duplicated register name in FDT system
+                continue;
+            }
             let id = self.new_device_id(register.node.phandle());
 
             let irq_parent = register
@@ -143,6 +149,7 @@ impl System {
         Ok(Self {
             phandle_2_device_id,
             fdt_addr,
+            probed_names: BTreeMap::new(),
         })
     }
 
@@ -195,4 +202,10 @@ struct ProbeFdtInfo {
     name: &'static str,
     node: Node<'static>,
     on_probe: FnOnProbe,
+}
+
+impl System {
+    pub fn mark_probed(&mut self, name: &'static str) {
+        self.probed_names.insert(name, ());
+    }
 }

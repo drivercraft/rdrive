@@ -34,7 +34,6 @@ pub use rdrive_macros::*;
 use crate::{
     error::DriverError,
     probe::{EnumSystem, OnProbeError},
-    register::RegisterId,
 };
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
@@ -113,18 +112,18 @@ fn probe_with<'a>(
 fn probe_one(one: &DriverRegisterData) -> Result<(), ProbeError> {
     let to_probe = edit(|manager| manager.to_unprobed(one))?;
     for to_probe in to_probe {
-        handle_probe_one_result(one.id, to_probe())?;
+        handle_probe_one_result(one.register.name, to_probe())?;
     }
     Ok(())
 }
 
 fn handle_probe_one_result(
-    register_id: RegisterId,
+    name: &'static str,
     res: Result<(), OnProbeError>,
 ) -> Result<(), ProbeError> {
     match res {
         Ok(_) => {
-            edit(|manager| manager.registers.set_probed(register_id));
+            edit(|manager| manager.enum_system.mark_probed(name));
             Ok(())
         }
         Err(OnProbeError::NotMatch) => {

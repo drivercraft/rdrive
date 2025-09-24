@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+use rdif_base::def_driver;
 pub use rdif_base::{DriverGeneric, KError, custom_type};
 
 custom_type!(
@@ -15,3 +16,5 @@ pub trait Interface: DriverGeneric {
 
     fn set_rate(&mut self, id: ClockId, rate: u64) -> Result<(), KError>;
 }
+
+def_driver!(Clk, Interface);

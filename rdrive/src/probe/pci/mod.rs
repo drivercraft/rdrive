@@ -1,6 +1,6 @@
 use crate::{
-    ProbeError, handle_probe_one_result,
-    register::{DriverRegisterData, ProbeKind},
+    ProbeError,
+    register::DriverRegisterData,
 };
 
 pub(crate) fn probe_with<'a>(
@@ -23,8 +23,8 @@ pub(crate) fn probe_with<'a>(
     Ok(())
 }
 
-fn probe_one(one: &DriverRegisterData) -> Result<(), ProbeError> {
-        
+fn probe_one(_one: &DriverRegisterData) -> Result<(), ProbeError> {
+
 
     // handle_probe_one_result(one.id, )?;
     Ok(())

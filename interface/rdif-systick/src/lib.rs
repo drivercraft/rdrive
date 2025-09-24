@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 
+use rdif_base::def_driver;
 pub use rdif_base::{DriverGeneric, KError, irq::*};
 
 pub trait Interface: DriverGeneric {
@@ -24,3 +25,5 @@ pub mod local {
         fn irq(&self) -> IrqConfig;
     }
 }
+
+def_driver!(Systick, Interface);

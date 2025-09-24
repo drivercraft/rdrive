@@ -74,6 +74,12 @@ impl EnumSystem {
             Platform::Fdt { addr } => Self::Fdt(fdt::System::new(addr)?),
         })
     }
+
+    pub fn mark_probed(&mut self, name: &'static str) {
+        match self {
+            EnumSystem::Fdt(sys) => sys.mark_probed(name),
+        }
+    }
 }
 
 pub(crate) type ToProbeFunc = Box<dyn FnOnce() -> Result<(), OnProbeError>>;

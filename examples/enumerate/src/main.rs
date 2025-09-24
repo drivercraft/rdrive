@@ -44,6 +44,8 @@ fn main() {
     }
 
     rdrive::probe_all(true).unwrap();
+    println!("--- after probe all ---");
+    rdrive::probe_all(true).unwrap();
 
     let id = rdrive::fdt_phandle_to_device_id(0x8000.into());
 
