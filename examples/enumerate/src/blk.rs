@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use log::debug;
+use rdif_intc::Intc;
 use rdrive::probe::OnProbeError;
 use rdrive::register::{DriverRegister, ProbeKind, ProbeLevel, ProbePriority};
 
@@ -23,6 +24,11 @@ fn probe(info: FdtInfo<'_>, _dev: PlatformDevice) -> Result<(), OnProbeError> {
         "[{}] has no reg",
         info.node.name()
     )))?;
+
+    if let Some(irq) = _dev.descriptor.irq_parent {
+        let intc = rdrive::get::<Intc>(irq).unwrap();
+        println!("parent intc: {:?}", intc.descriptor());
+    }
 
     let base_reg = reg.next().unwrap();
     let mmio_size = base_reg.size.unwrap_or(0x1000);

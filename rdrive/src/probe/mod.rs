@@ -8,7 +8,7 @@ use enum_dispatch::enum_dispatch;
 
 use fdt_parser::FdtError;
 
-use crate::{Platform, error::DriverError, register::DriverRegisterData};
+use crate::{Platform, error::DriverError, register::DriverRegister};
 
 pub mod fdt;
 pub mod pci;
@@ -55,6 +55,7 @@ impl OnProbeError {
     }
 }
 
+#[derive(Clone)]
 #[enum_dispatch]
 pub(crate) enum EnumSystem {
     Fdt(fdt::System),
@@ -62,10 +63,10 @@ pub(crate) enum EnumSystem {
 
 #[enum_dispatch(EnumSystem)]
 pub(crate) trait EnumSystemTrait {
-    fn to_unprobed(
-        &mut self,
-        register: &DriverRegisterData,
-    ) -> Result<Vec<ToProbeFunc>, ProbeError>;
+    fn probe_register(
+        &self,
+        register: &DriverRegister,
+    ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError>;
 }
 
 impl EnumSystem {
@@ -74,12 +75,4 @@ impl EnumSystem {
             Platform::Fdt { addr } => Self::Fdt(fdt::System::new(addr)?),
         })
     }
-
-    pub fn mark_probed(&mut self, name: &'static str) {
-        match self {
-            EnumSystem::Fdt(sys) => sys.mark_probed(name),
-        }
-    }
 }
-
-pub(crate) type ToProbeFunc = Box<dyn FnOnce() -> Result<(), OnProbeError>>;

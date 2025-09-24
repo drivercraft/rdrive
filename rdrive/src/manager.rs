@@ -5,8 +5,8 @@ use rdif_base::DriverGeneric;
 use crate::{
     Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError, Platform,
     error::DriverError,
-    probe::{EnumSystem, EnumSystemTrait, ProbeError, ToProbeFunc},
-    register::{DriverRegisterData, RegisterContainer},
+    probe::{EnumSystem, ProbeError},
+    register::{DriverRegister, RegisterContainer},
 };
 
 pub struct Manager {
@@ -24,17 +24,9 @@ impl Manager {
         })
     }
 
-    pub fn to_unprobed(
-        &mut self,
-        register: &DriverRegisterData,
-    ) -> Result<Vec<ToProbeFunc>, ProbeError> {
-        let unprobed = self.enum_system.to_unprobed(register)?;
-        Ok(unprobed)
-    }
-
-    pub fn unregistered(&mut self) -> Result<Vec<DriverRegisterData>, ProbeError> {
+    pub fn unregistered(&mut self) -> Result<Vec<DriverRegister>, ProbeError> {
         let mut out = self.registers.unregistered();
-        out.sort_by(|a, b| a.register.priority.cmp(&b.register.priority));
+        out.sort_by(|a, b| a.priority.cmp(&b.priority));
         Ok(out)
     }
 }

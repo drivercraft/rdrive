@@ -96,14 +96,9 @@ impl Deref for DriverRegisterSlice {
     }
 }
 
-#[derive(Clone)]
-pub struct DriverRegisterData {
-    pub register: DriverRegister,
-}
-
 #[derive(Default)]
 pub struct RegisterContainer {
-    registers: Vec<DriverRegisterData>,
+    registers: Vec<DriverRegister>,
 }
 
 impl RegisterContainer {
@@ -114,7 +109,7 @@ impl RegisterContainer {
     }
 
     pub fn add(&mut self, register: DriverRegister) {
-        self.registers.push(DriverRegisterData { register });
+        self.registers.push(register);
     }
 
     pub fn append(&mut self, register: &[DriverRegister]) {
@@ -123,7 +118,7 @@ impl RegisterContainer {
         }
     }
 
-    pub fn unregistered(&self) -> Vec<DriverRegisterData> {
-        self.registers.iter().cloned().collect()
+    pub fn unregistered(&self) -> Vec<DriverRegister> {
+        self.registers.to_vec()
     }
 }

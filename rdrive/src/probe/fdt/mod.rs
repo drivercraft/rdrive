@@ -1,5 +1,10 @@
-use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, btree_set::BTreeSet},
+    sync::Arc,
+    vec::Vec,
+};
 use core::ptr::NonNull;
+use spin::Mutex;
 
 pub use fdt_parser::*;
 
@@ -7,10 +12,10 @@ use crate::{
     Descriptor, DeviceId, PlatformDevice,
     error::DriverError,
     probe::OnProbeError,
-    register::{DriverRegisterData, ProbeKind},
+    register::{DriverRegister, ProbeKind},
 };
 
-use super::{ProbeError, ToProbeFunc};
+use super::ProbeError;
 
 #[derive(Clone)]
 pub struct FdtInfo<'a> {
@@ -40,11 +45,12 @@ impl<'a> FdtInfo<'a> {
 
 pub type FnOnProbe = fn(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
 
+#[derive(Clone)]
 pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
     fdt_addr: NonNull<u8>,
     // keep unique by driver register name in FDT mode
-    probed_names: BTreeMap<&'static str, ()>,
+    probed_names: Arc<Mutex<BTreeSet<&'static str>>>,
 }
 
 unsafe impl Send for System {}
@@ -60,77 +66,50 @@ impl System {
 }
 
 impl super::EnumSystemTrait for System {
-    fn to_unprobed(
-        &mut self,
-        register: &DriverRegisterData,
-    ) -> Result<Vec<ToProbeFunc>, ProbeError> {
+    fn probe_register(
+        &self,
+        register: &DriverRegister,
+    ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
         let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
-        let registers = self.get_fdt_registers(register, &fdt);
-        let mut out: Vec<ToProbeFunc> = Vec::new();
-
-        for register in registers {
-            if self.probed_names.contains_key(register.name) {
+        let node_ls = self.get_fdt_match_nodes(register, &fdt);
+        let mut out = Vec::new();
+        for node_info in node_ls {
+            if self.probed_names.lock().contains(node_info.name) {
                 // skip duplicated register name in FDT system
                 continue;
             }
-            let id = self.new_device_id(register.node.phandle());
+            let id = self.new_device_id(node_info.node.phandle());
 
-            let irq_parent = register
+            let irq_parent = node_info
                 .node
                 .interrupt_parent()
-                .filter(|p| p.node.phandle() != register.node.phandle())
+                .filter(|p| p.node.phandle() != node_info.node.phandle())
                 .and_then(|n| n.node.phandle())
                 .and_then(|p| self.phandle_2_device_id.get(&p).copied());
 
             let phandle_map = self.phandle_2_device_id.clone();
 
-            let probe_fn = move || {
-                debug!("Probe [{}]->[{}]", register.node.name, register.name);
-                // let mut irqs = Vec::new();
+            debug!("Probe [{}]->[{}]", node_info.node.name, node_info.name);
 
-                // if let Some(parent) = irq_parent
-                //     && let Some(raws) = register.node.interrupts()
-                // {
-                //     match get::<driver::Intc>(parent) {
-                //         Ok(intc) => {
-                //             let parse_fn = { intc.lock().unwrap().parse_dtb_fn() }.ok_or(
-                //                 OnProbeError::Fdt(
-                //                     "irq parent does not have irq parse fn".to_string(),
-                //                 ),
-                //             )?;
-
-                //             for raw in raws {
-                //                 if let Ok(irq) = parse_fn(&raw.collect::<Vec<_>>()) {
-                //                     irqs.push(irq);
-                //                 }
-                //             }
-                //         }
-                //         Err(_) => {
-                //             warn!(
-                //                 "[{}] parent irq driver does not exist, can not parse irq config",
-                //                 register.name
-                //             );
-                //         }
-                //     }
-                // }
-
-                let descriptor = Descriptor {
-                    name: register.name,
-                    device_id: id,
-                    irq_parent,
-                    // irqs: irqs.clone(),
-                };
-
-                (register.on_probe)(
-                    FdtInfo {
-                        node: register.node.clone(),
-                        phandle_2_device_id: phandle_map,
-                    },
-                    PlatformDevice::new(descriptor),
-                )
+            let descriptor = Descriptor {
+                name: node_info.name,
+                device_id: id,
+                irq_parent,
             };
 
-            out.push(Box::new(probe_fn));
+            let res = (node_info.on_probe)(
+                FdtInfo {
+                    node: node_info.node.clone(),
+                    phandle_2_device_id: phandle_map,
+                },
+                PlatformDevice::new(descriptor),
+            );
+
+            if res.is_ok() {
+                self.probed_names.lock().insert(node_info.name);
+            }
+
+            out.push(res);
         }
 
         Ok(out)
@@ -149,7 +128,7 @@ impl System {
         Ok(Self {
             phandle_2_device_id,
             fdt_addr,
-            probed_names: BTreeMap::new(),
+            probed_names: Arc::new(Mutex::new(BTreeSet::new())),
         })
     }
 
@@ -161,9 +140,9 @@ impl System {
         }
     }
 
-    fn get_fdt_registers(
+    fn get_fdt_match_nodes(
         &self,
-        register: &DriverRegisterData,
+        register: &DriverRegister,
         fdt: &Fdt<'static>,
     ) -> Vec<ProbeFdtInfo> {
         let mut out = Vec::new();
@@ -174,7 +153,7 @@ impl System {
 
             let node_compatibles = node.compatibles().collect::<Vec<_>>();
 
-            for probe in register.register.probe_kinds {
+            for probe in register.probe_kinds {
                 let &ProbeKind::Fdt {
                     compatibles,
                     on_probe,
@@ -186,7 +165,7 @@ impl System {
                 for campatible in &node_compatibles {
                     if compatibles.contains(campatible) {
                         out.push(ProbeFdtInfo {
-                            name: register.register.name,
+                            name: register.name,
                             node: node.clone(),
                             on_probe,
                         });
@@ -202,10 +181,4 @@ struct ProbeFdtInfo {
     name: &'static str,
     node: Node<'static>,
     on_probe: FnOnProbe,
-}
-
-impl System {
-    pub fn mark_probed(&mut self, name: &'static str) {
-        self.probed_names.insert(name, ());
-    }
 }

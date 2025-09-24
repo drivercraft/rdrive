@@ -1,10 +1,7 @@
-use crate::{
-    ProbeError,
-    register::DriverRegisterData,
-};
+use crate::{ProbeError, register::DriverRegister};
 
 pub(crate) fn probe_with<'a>(
-    registers: impl Iterator<Item = &'a DriverRegisterData>,
+    registers: impl Iterator<Item = &'a DriverRegister>,
     stop_if_fail: bool,
 ) -> Result<(), ProbeError> {
     for one in registers {
@@ -14,7 +11,7 @@ pub(crate) fn probe_with<'a>(
                 if stop_if_fail {
                     return Err(e);
                 } else {
-                    warn!("Probe failed for [{}]: {}", one.register.name, e);
+                    warn!("Probe failed for [{}]: {}", one.name, e);
                 }
             }
         }
@@ -23,9 +20,7 @@ pub(crate) fn probe_with<'a>(
     Ok(())
 }
 
-fn probe_one(_one: &DriverRegisterData) -> Result<(), ProbeError> {
-
-
+fn probe_one(_one: &DriverRegister) -> Result<(), ProbeError> {
     // handle_probe_one_result(one.id, )?;
     Ok(())
 }

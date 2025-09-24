@@ -8,7 +8,7 @@ extern crate log;
 use core::ptr::NonNull;
 
 pub use fdt_parser::Phandle;
-use register::{DriverRegister, DriverRegisterData, ProbeLevel};
+use register::{DriverRegister, ProbeLevel};
 use spin::Mutex;
 
 mod descriptor;
@@ -33,7 +33,7 @@ pub use rdrive_macros::*;
 
 use crate::{
     error::DriverError,
-    probe::{EnumSystem, OnProbeError},
+    probe::{EnumSystem, EnumSystemTrait, OnProbeError},
 };
 
 static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
@@ -82,25 +82,34 @@ pub fn probe_pre_kernel() -> Result<(), ProbeError> {
 
     let ls = unregistered
         .iter()
-        .filter(|one| matches!(one.register.level, ProbeLevel::PreKernel));
+        .filter(|one| matches!(one.level, ProbeLevel::PreKernel));
 
-    probe_with(ls, true)?;
+    probe_system(ls, true)?;
 
     Ok(())
 }
 
-fn probe_with<'a>(
-    registers: impl Iterator<Item = &'a DriverRegisterData>,
+fn probe_system<'a>(
+    registers: impl Iterator<Item = &'a DriverRegister>,
     stop_if_fail: bool,
 ) -> Result<(), ProbeError> {
     for one in registers {
-        match probe_one(one) {
-            Ok(_) => {} // Successfully probed, move to the next
-            Err(e) => {
-                if stop_if_fail {
-                    return Err(e);
-                } else {
-                    warn!("Probe failed for [{}]: {}", one.register.name, e);
+        let system = edit(|manager| manager.enum_system.clone());
+
+        let res = system.probe_register(one)?;
+
+        for r in res {
+            match r {
+                Ok(_) => {}
+                Err(OnProbeError::NotMatch) => {
+                    // Not a match, skip to the next probe
+                }
+                Err(e) => {
+                    if stop_if_fail {
+                        return Err(e.into());
+                    } else {
+                        warn!("Probe failed for [{}]: {}", one.name, e);
+                    }
                 }
             }
         }
@@ -109,33 +118,9 @@ fn probe_with<'a>(
     Ok(())
 }
 
-fn probe_one(one: &DriverRegisterData) -> Result<(), ProbeError> {
-    let to_probe = edit(|manager| manager.to_unprobed(one))?;
-    for to_probe in to_probe {
-        handle_probe_one_result(one.register.name, to_probe())?;
-    }
-    Ok(())
-}
-
-fn handle_probe_one_result(
-    name: &'static str,
-    res: Result<(), OnProbeError>,
-) -> Result<(), ProbeError> {
-    match res {
-        Ok(_) => {
-            edit(|manager| manager.enum_system.mark_probed(name));
-            Ok(())
-        }
-        Err(OnProbeError::NotMatch) => {
-            Ok(()) // Not a match, skip to the next probe
-        }
-        Err(e) => Err(e.into()),
-    }
-}
-
 pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
     let unregistered = edit(|manager| manager.unregistered())?;
-    probe_with(unregistered.iter(), stop_if_fail)?;
+    probe_system(unregistered.iter(), stop_if_fail)?;
 
     debug!("probe pci devices");
     probe::pci::probe_with(unregistered.iter(), stop_if_fail)?;

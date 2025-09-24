@@ -50,7 +50,7 @@ fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeE
         fdt.node.name(),
         plat_dev.descriptor.irq_parent,
     );
-    plat_dev.register(IrqTest {});
+    plat_dev.register(Intc::new(IrqTest {}));
 
     Ok(())
 }
