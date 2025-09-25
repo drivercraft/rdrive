@@ -1,0 +1,1 @@
+cd bus/pcie && cargo test --test test --target aarch64-unknown-none-softfloat  --  --show-output
