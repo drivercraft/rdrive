@@ -21,7 +21,7 @@ pcie = "0.4"
 
 rdif-base = {workspace = true}
 rdrive-macros = {version = "0.4", path = "../rdrive-macros"}
-rdif-pcie = {version = "0.1.1", path = "../interface/rdif-pcie"}
+rdif-pcie = {version = "0.1", path = "../interface/rdif-pcie"}
 
 [dev-dependencies]
 rdif-intc = { version = "0.12", path = "../interface/rdif-intc"}
