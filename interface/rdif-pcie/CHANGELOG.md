@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/drivercraft/rdrive/compare/rdif-pcie-v0.1.2...rdif-pcie-v0.1.3) - 2025-09-25
+
+### Fixed
+
+- 优化内存分配逻辑
+
 ## [0.1.2](https://github.com/drivercraft/rdrive/compare/rdif-pcie-v0.1.1...rdif-pcie-v0.1.2) - 2025-09-25
 
 ### Fixed
