@@ -46,10 +46,8 @@ impl SimpleBarAllocator {
 
     pub fn alloc_memory32(&mut self, size: u32, prefetchable: bool) -> Option<u32> {
         if prefetchable
-            && let Ok(addr) =
-                self.mem32_pref
-                    .as_mut()?
-                    .allocate(size as _, size as _, AllocPolicy::FirstMatch)
+            && let Some(set) = self.mem32_pref.as_mut()
+            && let Ok(addr) = set.allocate(size as _, size as _, AllocPolicy::FirstMatch)
         {
             return Some(addr.start() as _);
         }
@@ -64,10 +62,8 @@ impl SimpleBarAllocator {
 
     pub fn alloc_memory64(&mut self, size: u64, prefetchable: bool) -> Option<u64> {
         if prefetchable
-            && let Ok(addr) =
-                self.mem64_pref
-                    .as_mut()?
-                    .allocate(size as _, size as _, AllocPolicy::FirstMatch)
+            && let Some(set) = self.mem64_pref.as_mut()
+            && let Ok(addr) = set.allocate(size as _, size as _, AllocPolicy::FirstMatch)
         {
             return Some(addr.start() as _);
         }
