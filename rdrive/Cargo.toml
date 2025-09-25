@@ -17,8 +17,7 @@ log = "0.4"
 paste = "1"
 spin = "0.10"
 thiserror = {version = "2", default-features = false}
-# pcie = "0.4"
-pcie = {path = "/home/zhourui/opensource/pcie"}
+pcie = "0.4"
 
 rdif-base = {workspace = true}
 rdrive-macros = {version = "0.4", path = "../rdrive-macros"}
