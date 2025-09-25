@@ -7,14 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.2](https://github.com/drivercraft/rdrive/compare/rdif-serial-v0.4.1...rdif-serial-v0.4.2) - 2025-09-25
+## [0.4.4](https://github.com/drivercraft/rdrive/compare/pcie-v0.4.3...pcie-v0.4.4) - 2025-09-25
 
 ### Other
 
-- enum
-
-## [0.4.1](https://github.com/drivercraft/rdrive/compare/rdif-serial-v0.4.0...rdif-serial-v0.4.1) - 2025-09-23
-
-### Fixed
-
-- fix test
+- add pcie
