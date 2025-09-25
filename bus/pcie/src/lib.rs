@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate alloc;
 
-#[macro_use]
 extern crate log;
 
 mod bar_alloc;

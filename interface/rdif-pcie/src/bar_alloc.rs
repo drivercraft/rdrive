@@ -44,7 +44,16 @@ impl SimpleBarAllocator {
         Ok(())
     }
 
-    pub fn alloc_memory32(&mut self, size: u32) -> Option<u32> {
+    pub fn alloc_memory32(&mut self, size: u32, prefetchable: bool) -> Option<u32> {
+        if prefetchable
+            && let Ok(addr) =
+                self.mem32_pref
+                    .as_mut()?
+                    .allocate(size as _, size as _, AllocPolicy::FirstMatch)
+        {
+            return Some(addr.start() as _);
+        }
+
         let res = self
             .mem32
             .as_mut()?
@@ -53,36 +62,21 @@ impl SimpleBarAllocator {
         Some(res.start() as _)
     }
 
-    pub fn alloc_memory64(&mut self, size: u64) -> Option<u64> {
+    pub fn alloc_memory64(&mut self, size: u64, prefetchable: bool) -> Option<u64> {
+        if prefetchable
+            && let Ok(addr) =
+                self.mem64_pref
+                    .as_mut()?
+                    .allocate(size as _, size as _, AllocPolicy::FirstMatch)
+        {
+            return Some(addr.start() as _);
+        }
+
         let res = self
             .mem64
             .as_mut()?
             .allocate(size as _, size as _, AllocPolicy::FirstMatch)
             .ok()?;
         Some(res.start() as _)
-    }
-
-    /// Allocate from 32-bit windows considering prefetchable flag.
-    pub fn alloc_memory32_with_pref(&mut self, size: u32, prefetchable: bool) -> Option<u32> {
-        if prefetchable && let Some(alloc) = self.mem32_pref.as_mut() {
-            let res = alloc
-                .allocate(size as _, size as _, AllocPolicy::FirstMatch)
-                .ok()?;
-            return Some(res.start() as _);
-        }
-        // fallback to non-prefetchable window
-        self.alloc_memory32(size)
-    }
-
-    /// Allocate from 64-bit windows considering prefetchable flag.
-    pub fn alloc_memory64_with_pref(&mut self, size: u64, prefetchable: bool) -> Option<u64> {
-        if prefetchable && let Some(alloc) = self.mem64_pref.as_mut() {
-            let res = alloc
-                .allocate(size as _, size as _, AllocPolicy::FirstMatch)
-                .ok()?;
-            return Some(res.start() as _);
-        }
-        // fallback to non-prefetchable window
-        self.alloc_memory64(size)
     }
 }

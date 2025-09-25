@@ -78,7 +78,7 @@ mod tests {
             println!("  BARs:");
             for i in 0..6 {
                 if let Some(bar) = ep.bar(i) {
-                    println!("    BAR{}: {:#x?}", i, bar);
+                    println!("    BAR{}: {:x?}", i, bar);
                 }
             }
             for cap in ep.capabilities() {
@@ -90,12 +90,6 @@ mod tests {
                 cmd
             });
         }
-
-        // for header in root.enumerate_keep_bar(None) {
-        //     // if let pcie::Header::Endpoint(endpoint) = header.header {
-        //     // endpoint.update_command( header.root, |cmd| cmd);
-        //     // }
-        // }
 
         println!("test passed!");
     }

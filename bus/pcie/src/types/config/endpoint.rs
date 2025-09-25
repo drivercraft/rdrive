@@ -5,12 +5,10 @@ use core::{
 
 use alloc::vec::Vec;
 use pci_types::{
-    capability::PciCapability, device_type::DeviceType, Bar, CommandRegister, ConfigRegionAccess,
-    EndpointHeader, PciAddress,
+    capability::PciCapability, device_type::DeviceType, Bar, BarWriteError, CommandRegister,
+    EndpointHeader,
 };
-use rdif_pcie::ConfigAccess;
-
-use crate::{BarHeader, BarVec, SimpleBarAllocator};
+use rdif_pcie::{ConfigAccess, SimpleBarAllocator};
 
 pub struct Endpoint {
     base: super::PciHeaderBase,
@@ -36,25 +34,42 @@ impl Endpoint {
         DeviceType::from((class_info.base_class, class_info.sub_class))
     }
 
-    pub fn bar(&self, index: usize) -> Option<Range<usize>> {
-        assert!(index < 6, "BAR index out of range");
+    pub fn bar(&self, slot: u8) -> Option<Bar> {
         let bars = self.bars();
-        let r = match &bars {
-            BarVec::Memory32(bar_vec) => {
-                let b = bar_vec.get(index)?;
-                b.address as usize..(b.address as usize + b.size as usize)
-            }
-            BarVec::Memory64(bar_vec) => {
-                let b = bar_vec.get(index)?;
-                b.address as usize..(b.address + b.size) as usize
-            }
-            BarVec::Io(_) => unimplemented!(), // IO BAR size is typically 4 bytes
-        };
-        Some(r)
+        assert!(slot < 6, "BAR index out of range");
+        bars[slot as usize]
     }
 
-    pub fn bars(&self) -> BarVec {
-        self.header.parse_bar(6, &self.base.root)
+    pub fn bar_mmio(&self, slot: u8) -> Option<Range<usize>> {
+        let bar = self.bar(slot)?;
+        match bar {
+            Bar::Memory32 { address, size, .. } => Some(address as _..(address + size) as _),
+            Bar::Memory64 { address, size, .. } => Some(address as _..(address + size) as _),
+            Bar::Io { .. } => None,
+        }
+    }
+
+    fn _bar(&self, slot: u8) -> Option<Bar> {
+        assert!(slot < 6, "BAR index out of range");
+        self.header.bar(slot, self.access())
+    }
+
+    pub fn set_bar(&mut self, slot: u8, value: usize) -> Result<(), BarWriteError> {
+        assert!(slot < 6, "BAR index out of range");
+        unsafe { self.header.write_bar(slot, &self.base.root, value) }
+    }
+
+    pub fn bars(&self) -> [Option<Bar>; 6] {
+        let mut bars = [None; 6];
+        let mut i = 0;
+        while i < 6 {
+            bars[i] = self._bar(i as u8);
+            if let Some(Bar::Memory64 { .. }) = bars[i] {
+                i += 1; // Skip the next BAR since it's part of this 64-bit BAR
+            }
+            i += 1;
+        }
+        bars
     }
 
     pub fn capabilities_pointer(&self) -> u16 {
@@ -105,72 +120,34 @@ impl Endpoint {
             cmd.remove(CommandRegister::MEMORY_ENABLE);
             cmd
         });
-        let bar = self.bars();
-
-        match &bar {
-            crate::BarVec::Memory32(bar_vec) => {
-                // Compute new values with mutable allocator, then write using immutable access
-                let new_vals = {
-                    bar_vec
-                        .iter()
-                        .map(|old| {
-                            old.clone().map(|ref b| {
-                                allocator
-                                    .alloc_memory32_with_pref(b.size, b.prefetchable)
-                                    .unwrap()
-                            })
-                        })
-                        .collect::<alloc::vec::Vec<_>>()
-                };
-                for (i, v) in new_vals.into_iter().enumerate() {
-                    if let Some(value) = v {
-                        bar_vec.set(i, value, &self.base.root).unwrap();
+        for (i, bar) in self.bars().into_iter().enumerate() {
+            if let Some(bar) = bar {
+                match bar {
+                    Bar::Memory32 {
+                        address: _,
+                        size,
+                        prefetchable,
+                    } => {
+                        let addr = allocator.alloc_memory32(size, prefetchable).unwrap();
+                        self.set_bar(i as _, addr as usize).unwrap();
                     }
-                }
-                self.base.update_command(|mut cmd| {
-                    cmd.insert(CommandRegister::MEMORY_ENABLE);
-                    cmd
-                });
-            }
-            crate::BarVec::Memory64(bar_vec) => {
-                let new_vals = {
-                    bar_vec
-                        .iter()
-                        .map(|old| {
-                            old.clone().map(|ref b| {
-                                if b.address > 0 && b.address < u32::MAX as u64 {
-                                    allocator
-                                        .alloc_memory32_with_pref(b.size as u32, b.prefetchable)
-                                        .unwrap() as u64
-                                } else {
-                                    allocator
-                                        .alloc_memory64_with_pref(b.size, b.prefetchable)
-                                        .unwrap()
-                                }
-                            })
-                        })
-                        .collect::<alloc::vec::Vec<_>>()
-                };
-                for (i, v) in new_vals.into_iter().enumerate() {
-                    if let Some(value) = v {
-                        bar_vec
-                            .set(i, value, &self.base.root)
-                            .inspect_err(|e| error!("{e:?}"))
-                            .unwrap();
+                    Bar::Memory64 {
+                        address: _,
+                        size,
+                        prefetchable,
+                    } => {
+                        let addr = allocator.alloc_memory64(size, prefetchable).unwrap();
+                        self.set_bar(i as _, addr as usize).unwrap();
                     }
+                    Bar::Io { port: _ } => {}
                 }
-                self.base.update_command(|mut cmd| {
-                    cmd.insert(CommandRegister::MEMORY_ENABLE);
-                    cmd
-                });
-            }
-            crate::BarVec::Io(_bar_vec_t) => {
-                self.base.update_command(|mut cmd| {
-                    cmd.insert(CommandRegister::IO_ENABLE);
-                    cmd
-                });
             }
         }
+
+        self.base.update_command(|mut cmd| {
+            cmd.insert(CommandRegister::MEMORY_ENABLE | CommandRegister::IO_ENABLE);
+            cmd
+        });
 
         Ok(())
     }
@@ -187,20 +164,6 @@ impl Deref for Endpoint {
 impl DerefMut for Endpoint {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.base
-    }
-}
-
-impl BarHeader for EndpointHeader {
-    fn read_bar<A: ConfigRegionAccess>(&self, slot: usize, access: &A) -> Option<Bar> {
-        self.bar(slot as u8, access)
-    }
-
-    fn address(&self) -> PciAddress {
-        self.header().address()
-    }
-
-    fn header_type(&self) -> pci_types::HeaderType {
-        pci_types::HeaderType::Endpoint
     }
 }
 
