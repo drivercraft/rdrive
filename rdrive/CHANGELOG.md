@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.4](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.3...rdrive-v0.18.4) - 2025-09-25
+
+### Other
+
+- add pcie
+
 ## [0.16.0](https://github.com/drivercraft/rdrive/compare/rdrive-v0.15.2...rdrive-v0.16.0) - 2025-06-27
 
 ### Added
