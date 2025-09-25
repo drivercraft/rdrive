@@ -1,18 +1,19 @@
-use core::ops::DerefMut;
+use core::ptr::NonNull;
 
 use ::pcie::*;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use rdif_pcie::DriverGeneric;
 use spin::{Mutex, Once};
 
 use crate::{
-    Descriptor, Device, DeviceGuard, PlatformDevice, ProbeError, get_list,
+    Descriptor, Device, PlatformDevice, ProbeError, get_list,
     probe::OnProbeError,
     register::{DriverRegister, ProbeKind},
 };
 
 static PCIE: Once<Mutex<Vec<PcieEnumterator>>> = Once::new();
 
-pub type FnOnProbe = fn(ep: Endpoint, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
+pub type FnOnProbe = fn(ep: Endpoint, plat_dev: PlatformDevice) -> Result<(), PciProbeError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Id {
@@ -20,9 +21,18 @@ struct Id {
     device: u16,
 }
 
+pub struct PciProbeError {
+    pub ep: Endpoint,
+    pub kind: OnProbeError,
+}
+
+pub fn new_driver_generic(mmio_base: NonNull<u8>) -> PcieController {
+    PcieController::new(PcieGeneric::new(mmio_base))
+}
+
 fn pcie() -> &'static Mutex<Vec<PcieEnumterator>> {
     PCIE.call_once(|| {
-        let ctrl_ls = get_list::<rdif_pcie::Pcie>();
+        let ctrl_ls = get_list::<PcieController>();
         let mut vec = Vec::new();
         for ctrl in ctrl_ls.into_iter() {
             {
@@ -50,7 +60,7 @@ pub(crate) fn probe_with(
 }
 
 struct PcieEnumterator {
-    ctrl: Device<rdif_pcie::Pcie>,
+    ctrl: Device<PcieController>,
     probed: BTreeSet<Id>,
 }
 
@@ -60,10 +70,10 @@ impl PcieEnumterator {
         registers: &[DriverRegister],
         stop_if_fail: bool,
     ) -> Result<(), ProbeError> {
-        let g = self.ctrl.lock().unwrap();
-        let mut host = pcie::RootComplex::new(g);
+        let mut g = self.ctrl.lock().unwrap();
 
-        for ep in host.enumerate(None) {
+        for ep in enumerate_by_controller(&mut g, None) {
+            debug!("PCIe endpiont: {}", ep);
             match self.probe_one(ep, registers) {
                 Ok(_) => {} // Successfully probed, move to the next
                 Err(e) => {
@@ -79,10 +89,14 @@ impl PcieEnumterator {
         Ok(())
     }
 
-    fn probe_one(&mut self, ep: Endpoint, registers: &[DriverRegister]) -> Result<(), ProbeError> {
+    fn probe_one(
+        &mut self,
+        mut endpoint: Endpoint,
+        registers: &[DriverRegister],
+    ) -> Result<(), ProbeError> {
         let id = Id {
-            vendor: ep.vendor_id(),
-            device: ep.device_id(),
+            vendor: endpoint.vendor_id(),
+            device: endpoint.device_id(),
         };
         if self.probed.contains(&id) {
             return Ok(());
@@ -99,29 +113,27 @@ impl PcieEnumterator {
             };
             let mut desc = Descriptor::new();
             desc.name = register.name;
+            desc.irq_parent = self.ctrl.descriptor().irq_parent;
 
             let plat_dev = PlatformDevice::new(desc);
 
-            match (pci_probe)(ep, plat_dev) {
-                Ok(_) => {}
-                Err(OnProbeError::NotMatch) => continue,
-                Err(e) => return Err(e.into()),
+            match (pci_probe)(endpoint, plat_dev) {
+                Ok(_) => {
+                    break;
+                }
+                Err(e) => {
+                    endpoint = e.ep;
+                    match e.kind {
+                        OnProbeError::NotMatch => continue,
+                        e => {
+                            return Err(ProbeError::from(e));
+                        }
+                    }
+                }
             }
-
-            self.probed.insert(id);
-            break;
         }
 
+        self.probed.insert(id);
         Ok(())
-    }
-}
-
-impl Controller for DeviceGuard<rdif_pcie::Pcie> {
-    fn read(&mut self, address: PciAddress, offset: u16) -> u32 {
-        self.deref_mut().read(address, offset)
-    }
-
-    fn write(&mut self, address: PciAddress, offset: u16, value: u32) {
-        self.deref_mut().write(address, offset, value)
     }
 }

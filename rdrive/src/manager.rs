@@ -3,9 +3,9 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use rdif_base::DriverGeneric;
 
 use crate::{
-    Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError, Platform,
+    Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError,
     error::DriverError,
-    probe::{ ProbeError},
+    probe::ProbeError,
     register::{DriverRegister, RegisterContainer},
 };
 

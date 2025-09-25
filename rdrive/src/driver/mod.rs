@@ -1,3 +1,4 @@
+use pcie::PcieController;
 pub use rdif_base::DriverGeneric;
 
 use crate::Descriptor;
@@ -30,6 +31,12 @@ impl PlatformDevice {
     pub fn register<T: DriverGeneric>(self, driver: T) {
         crate::edit(|manager| {
             manager.dev_container.insert(self.descriptor, driver);
+        });
+    }
+
+    pub fn register_pcie(self, drv: PcieController) {
+        crate::edit(|manager| {
+            manager.dev_container.insert(self.descriptor, drv);
         });
     }
 }

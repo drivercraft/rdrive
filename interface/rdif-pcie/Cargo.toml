@@ -12,3 +12,4 @@ version = "0.1.0"
 [dependencies]
 pci_types = "0.10"
 rdif-base = { workspace = true }
+thiserror = {version = "2", default-features = false}
