@@ -16,7 +16,6 @@ bit_field = "0.10"
 bitflags = "2"
 pci_types = "0.10"
 thiserror = {version="2", default-features = false}
-enum_dispatch = "0.3"
 
 rdif-pcie = {workspace = true}
 
