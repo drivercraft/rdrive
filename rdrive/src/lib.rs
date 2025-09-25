@@ -148,7 +148,7 @@ pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
 }
 
 pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
-    probe::fdt::system().lock().phandle_to_device_id(phandle)
+    probe::fdt::system().phandle_to_device_id(phandle)
 }
 
 /// Macro for generating a driver module.

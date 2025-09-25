@@ -16,22 +16,22 @@ use crate::{
 
 use super::ProbeError;
 
-static SYSTEM: Once<Mutex<System>> = Once::new();
+static SYSTEM: Once<System> = Once::new();
 
 pub fn init(fdt_addr: NonNull<u8>) -> Result<(), DriverError> {
     let sys = System::new(fdt_addr)?;
-    SYSTEM.call_once(|| Mutex::new(sys));
+    SYSTEM.call_once(|| sys);
     Ok(())
 }
 
 pub fn probe_register(
     register: &DriverRegister,
 ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
-    let mut sys = system().lock();
+    let sys = system();
     sys.probe_register(register)
 }
 
-pub(crate) fn system() -> &'static Mutex<System> {
+pub(crate) fn system() -> &'static System {
     SYSTEM.get().expect("rdrive not init")
 }
 
@@ -63,19 +63,18 @@ impl<'a> FdtInfo<'a> {
 
 pub type FnOnProbe = fn(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
 
-#[derive(Clone)]
 pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
-    fdt_addr: NonNull<u8>,
+    fdt_addr: usize,
     // keep unique by driver register name in FDT mode
-    probed_names: BTreeSet<&'static str>,
+    probed_names: Mutex<BTreeSet<&'static str>>,
 }
 
 unsafe impl Send for System {}
 
 impl System {
     pub fn fdt_addr(&self) -> NonNull<u8> {
-        self.fdt_addr
+        unsafe { NonNull::new_unchecked(self.fdt_addr as *mut u8) }
     }
 
     pub fn phandle_to_device_id(&self, phandle: Phandle) -> Option<DeviceId> {
@@ -94,8 +93,8 @@ impl System {
         }
         Ok(Self {
             phandle_2_device_id,
-            fdt_addr,
-            probed_names: BTreeSet::new(),
+            fdt_addr: fdt_addr.as_ptr() as usize,
+            probed_names: Mutex::new(BTreeSet::new()),
         })
     }
 
@@ -144,14 +143,14 @@ impl System {
     }
 
     fn probe_register(
-        &mut self,
+        &self,
         register: &DriverRegister,
     ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
-        let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
+        let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr())?;
         let node_ls = self.get_fdt_match_nodes(register, &fdt);
         let mut out = Vec::new();
         for node_info in node_ls {
-            if self.probed_names.contains(node_info.name) {
+            if self.probed_names.lock().contains(node_info.name) {
                 // skip duplicated register name in FDT system
                 continue;
             }
@@ -183,7 +182,7 @@ impl System {
             );
 
             if res.is_ok() {
-                self.probed_names.insert(node_info.name);
+                self.probed_names.lock().insert(node_info.name);
             }
 
             out.push(res);

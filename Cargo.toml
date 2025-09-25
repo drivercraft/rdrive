@@ -1,5 +1,11 @@
 [workspace]
-members = ["interface/*", "rdrive-macros", "rdrive", "examples/enumerate"]
+members = [
+  "interface/*",
+  "bus/*",
+  "rdrive-macros",
+  "rdrive",
+  "examples/enumerate",
+]
 resolver = "3"
 
 [workspace.package]
@@ -8,4 +14,5 @@ repository = "https://github.com/drivercraft/rdrive"
 
 [workspace.dependencies]
 log = "0.4"
-rdif-base = { version = "0.7", path = "interface/rdif-base"}
+rdif-base = {version = "0.7", path = "interface/rdif-base"}
+rdif-pcie = {version = "0.1", path = "interface/rdif-pcie"}
