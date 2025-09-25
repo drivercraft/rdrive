@@ -2,7 +2,7 @@ use core::ptr::NonNull;
 
 use ::pcie::*;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
-use rdif_pcie::DriverGeneric;
+pub use rdif_pcie::{DriverGeneric, PciAddress, PciMem32, PciMem64, PcieController};
 use spin::{Mutex, Once};
 
 use crate::{

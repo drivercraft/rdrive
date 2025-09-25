@@ -62,13 +62,6 @@ pub struct PcieController {
     pub bar_allocator: Option<SimpleBarAllocator>,
 }
 
-pub struct PcieSpaceSet {
-    pub pci_space32_perfetch: Option<PciMem32>,
-    pub pci_space32: Option<PciMem32>,
-    pub pci_space64_perfetch: Option<PciMem64>,
-    pub pci_space64: Option<PciMem64>,
-}
-
 impl PcieController {
     pub fn new(chip: impl Interface) -> Self {
         Self {
