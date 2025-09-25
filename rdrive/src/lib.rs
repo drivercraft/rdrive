@@ -9,7 +9,7 @@ use core::ptr::NonNull;
 
 pub use fdt_parser::Phandle;
 use register::{DriverRegister, ProbeLevel};
-use spin::Mutex;
+use spin::{Mutex, Once};
 
 mod descriptor;
 pub mod driver;
@@ -31,12 +31,9 @@ pub use probe::ProbeError;
 pub use rdif_base::{DriverGeneric, KError, irq::IrqId};
 pub use rdrive_macros::*;
 
-use crate::{
-    error::DriverError,
-    probe::{EnumSystem, EnumSystemTrait, OnProbeError},
-};
+use crate::{error::DriverError, probe::OnProbeError};
 
-static MANAGER: Mutex<Option<Manager>> = Mutex::new(None);
+static CONTAINER: Once<Mutex<Manager>> = Once::new();
 
 #[derive(Debug, Clone)]
 pub enum Platform {
@@ -45,11 +42,19 @@ pub enum Platform {
 
 unsafe impl Send for Platform {}
 
+pub(crate) fn container() -> &'static Mutex<Manager> {
+    CONTAINER.get().expect("rdrive not init")
+}
+
 pub fn init(platform: Platform) -> Result<(), DriverError> {
-    let mut g = MANAGER.lock();
-    if g.is_none() {
-        g.replace(Manager::new(platform)?);
+    match platform {
+        Platform::Fdt { addr } => {
+            probe::fdt::init(addr)?;
+        }
     }
+
+    let m = Manager::new()?;
+    CONTAINER.call_once(|| Mutex::new(m));
     Ok(())
 }
 
@@ -57,16 +62,16 @@ pub(crate) fn edit<F, T>(f: F) -> T
 where
     F: FnOnce(&mut Manager) -> T,
 {
-    let mut g = MANAGER.lock();
-    f(g.as_mut().expect("manager not init"))
+    let mut g = container().lock();
+    f(&mut g)
 }
 
 pub(crate) fn read<F, T>(f: F) -> T
 where
     F: FnOnce(&Manager) -> T,
 {
-    let g = MANAGER.lock();
-    f(g.as_ref().expect("manager not init"))
+    let g = container().lock();
+    f(&g)
 }
 
 pub fn register_add(register: DriverRegister) {
@@ -94,9 +99,11 @@ fn probe_system<'a>(
     stop_if_fail: bool,
 ) -> Result<(), ProbeError> {
     for one in registers {
-        let system = edit(|manager| manager.enum_system.clone());
+        // let system = edit(|manager| manager.enum_system.clone());
 
-        let res = system.probe_register(one)?;
+        // let res = system.probe_register(one)?;
+
+        let res = probe::fdt::probe_register(one)?;
 
         for r in res {
             match r {
@@ -123,7 +130,7 @@ pub fn probe_all(stop_if_fail: bool) -> Result<(), ProbeError> {
     probe_system(unregistered.iter(), stop_if_fail)?;
 
     debug!("probe pci devices");
-    probe::pci::probe_with(unregistered.iter(), stop_if_fail)?;
+    probe::pci::probe_with(&unregistered, stop_if_fail)?;
 
     Ok(())
 }
@@ -141,10 +148,7 @@ pub fn get_one<T: DriverGeneric>() -> Option<Device<T>> {
 }
 
 pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
-    read(|manager| {
-        let EnumSystem::Fdt(system) = &manager.enum_system;
-        system.phandle_to_device_id(phandle)
-    })
+    probe::fdt::system().lock().phandle_to_device_id(phandle)
 }
 
 /// Macro for generating a driver module.

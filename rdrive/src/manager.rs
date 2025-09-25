@@ -5,20 +5,20 @@ use rdif_base::DriverGeneric;
 use crate::{
     Descriptor, Device, DeviceId, DeviceOwner, GetDeviceError, Platform,
     error::DriverError,
-    probe::{EnumSystem, ProbeError},
+    probe::{ ProbeError},
     register::{DriverRegister, RegisterContainer},
 };
 
 pub struct Manager {
     pub registers: RegisterContainer,
     pub(crate) dev_container: DeviceContainer,
-    pub(crate) enum_system: EnumSystem,
+    // pub(crate) enum_system: EnumSystem,
 }
 
 impl Manager {
-    pub fn new(platform: Platform) -> Result<Self, DriverError> {
+    pub fn new() -> Result<Self, DriverError> {
         Ok(Self {
-            enum_system: EnumSystem::new(platform)?,
+            // enum_system: EnumSystem::new(platform)?,
             registers: RegisterContainer::default(),
             dev_container: DeviceContainer::default(),
         })

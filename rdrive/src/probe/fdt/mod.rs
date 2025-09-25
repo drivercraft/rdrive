@@ -1,10 +1,9 @@
 use alloc::{
     collections::{BTreeMap, btree_set::BTreeSet},
-    sync::Arc,
     vec::Vec,
 };
 use core::ptr::NonNull;
-use spin::Mutex;
+use spin::{Mutex, Once};
 
 pub use fdt_parser::*;
 
@@ -16,6 +15,25 @@ use crate::{
 };
 
 use super::ProbeError;
+
+static SYSTEM: Once<Mutex<System>> = Once::new();
+
+pub fn init(fdt_addr: NonNull<u8>) -> Result<(), DriverError> {
+    let sys = System::new(fdt_addr)?;
+    SYSTEM.call_once(|| Mutex::new(sys));
+    Ok(())
+}
+
+pub fn probe_register(
+    register: &DriverRegister,
+) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
+    let mut sys = system().lock();
+    sys.probe_register(register)
+}
+
+pub(crate) fn system() -> &'static Mutex<System> {
+    SYSTEM.get().expect("rdrive not init")
+}
 
 #[derive(Clone)]
 pub struct FdtInfo<'a> {
@@ -50,7 +68,7 @@ pub struct System {
     phandle_2_device_id: BTreeMap<Phandle, DeviceId>,
     fdt_addr: NonNull<u8>,
     // keep unique by driver register name in FDT mode
-    probed_names: Arc<Mutex<BTreeSet<&'static str>>>,
+    probed_names: BTreeSet<&'static str>,
 }
 
 unsafe impl Send for System {}
@@ -62,57 +80,6 @@ impl System {
 
     pub fn phandle_to_device_id(&self, phandle: Phandle) -> Option<DeviceId> {
         self.phandle_2_device_id.get(&phandle).copied()
-    }
-}
-
-impl super::EnumSystemTrait for System {
-    fn probe_register(
-        &self,
-        register: &DriverRegister,
-    ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
-        let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
-        let node_ls = self.get_fdt_match_nodes(register, &fdt);
-        let mut out = Vec::new();
-        for node_info in node_ls {
-            if self.probed_names.lock().contains(node_info.name) {
-                // skip duplicated register name in FDT system
-                continue;
-            }
-            let id = self.new_device_id(node_info.node.phandle());
-
-            let irq_parent = node_info
-                .node
-                .interrupt_parent()
-                .filter(|p| p.node.phandle() != node_info.node.phandle())
-                .and_then(|n| n.node.phandle())
-                .and_then(|p| self.phandle_2_device_id.get(&p).copied());
-
-            let phandle_map = self.phandle_2_device_id.clone();
-
-            debug!("Probe [{}]->[{}]", node_info.node.name, node_info.name);
-
-            let descriptor = Descriptor {
-                name: node_info.name,
-                device_id: id,
-                irq_parent,
-            };
-
-            let res = (node_info.on_probe)(
-                FdtInfo {
-                    node: node_info.node.clone(),
-                    phandle_2_device_id: phandle_map,
-                },
-                PlatformDevice::new(descriptor),
-            );
-
-            if res.is_ok() {
-                self.probed_names.lock().insert(node_info.name);
-            }
-
-            out.push(res);
-        }
-
-        Ok(out)
     }
 }
 
@@ -128,7 +95,7 @@ impl System {
         Ok(Self {
             phandle_2_device_id,
             fdt_addr,
-            probed_names: Arc::new(Mutex::new(BTreeSet::new())),
+            probed_names: BTreeSet::new(),
         })
     }
 
@@ -174,6 +141,55 @@ impl System {
             }
         }
         out
+    }
+
+    fn probe_register(
+        &mut self,
+        register: &DriverRegister,
+    ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError> {
+        let fdt: Fdt<'static> = Fdt::from_ptr(self.fdt_addr)?;
+        let node_ls = self.get_fdt_match_nodes(register, &fdt);
+        let mut out = Vec::new();
+        for node_info in node_ls {
+            if self.probed_names.contains(node_info.name) {
+                // skip duplicated register name in FDT system
+                continue;
+            }
+            let id = self.new_device_id(node_info.node.phandle());
+
+            let irq_parent = node_info
+                .node
+                .interrupt_parent()
+                .filter(|p| p.node.phandle() != node_info.node.phandle())
+                .and_then(|n| n.node.phandle())
+                .and_then(|p| self.phandle_2_device_id.get(&p).copied());
+
+            let phandle_map = self.phandle_2_device_id.clone();
+
+            debug!("Probe [{}]->[{}]", node_info.node.name, node_info.name);
+
+            let descriptor = Descriptor {
+                name: node_info.name,
+                device_id: id,
+                irq_parent,
+            };
+
+            let res = (node_info.on_probe)(
+                FdtInfo {
+                    node: node_info.node.clone(),
+                    phandle_2_device_id: phandle_map,
+                },
+                PlatformDevice::new(descriptor),
+            );
+
+            if res.is_ok() {
+                self.probed_names.insert(node_info.name);
+            }
+
+            out.push(res);
+        }
+
+        Ok(out)
     }
 }
 

@@ -1,14 +1,10 @@
 use alloc::{
     boxed::Box,
     string::{String, ToString},
-    vec::Vec,
 };
 use core::error::Error;
-use enum_dispatch::enum_dispatch;
 
 use fdt_parser::FdtError;
-
-use crate::{Platform, error::DriverError, register::DriverRegister};
 
 pub mod fdt;
 pub mod pci;
@@ -52,27 +48,5 @@ impl From<FdtError<'_>> for OnProbeError {
 impl OnProbeError {
     pub fn other(msg: impl AsRef<str>) -> Self {
         Self::Other(msg.as_ref().to_string().into())
-    }
-}
-
-#[derive(Clone)]
-#[enum_dispatch]
-pub(crate) enum EnumSystem {
-    Fdt(fdt::System),
-}
-
-#[enum_dispatch(EnumSystem)]
-pub(crate) trait EnumSystemTrait {
-    fn probe_register(
-        &self,
-        register: &DriverRegister,
-    ) -> Result<Vec<Result<(), OnProbeError>>, ProbeError>;
-}
-
-impl EnumSystem {
-    pub fn new(platform: Platform) -> Result<Self, DriverError> {
-        Ok(match platform {
-            Platform::Fdt { addr } => Self::Fdt(fdt::System::new(addr)?),
-        })
     }
 }

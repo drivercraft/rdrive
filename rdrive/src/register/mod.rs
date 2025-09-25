@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 use core::ops::Deref;
 
-use crate::probe::fdt;
 pub use crate::probe::fdt::FdtInfo;
+use crate::probe::{fdt, pci};
 pub use fdt_parser::Node;
 
 #[repr(transparent)]
@@ -55,7 +55,9 @@ pub enum ProbeKind {
         compatibles: &'static [&'static str],
         on_probe: fdt::FnOnProbe,
     },
-    Pci {},
+    Pci {
+        on_probe: pci::FnOnProbe,
+    },
 }
 
 #[repr(C)]
