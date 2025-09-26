@@ -2,8 +2,10 @@ use core::ptr::NonNull;
 
 use ::pcie::*;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
-pub use rdif_pcie::{DriverGeneric, PciAddress, PciMem32, PciMem64, PcieController};
 use spin::{Mutex, Once};
+
+pub use rdif_pcie::{DriverGeneric, PciAddress, PciMem32, PciMem64, PcieController};
+pub use ::pcie::{PcieGeneric, Endpoint, PciCapability};
 
 use crate::{
     Descriptor, Device, PlatformDevice, ProbeError, get_list,
