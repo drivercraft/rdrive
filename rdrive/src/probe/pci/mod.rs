@@ -1,7 +1,10 @@
-use core::ptr::NonNull;
+use core::{
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+};
 
 use ::pcie::*;
-use alloc::{collections::btree_set::BTreeSet, rc::Rc, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use spin::{Mutex, Once};
 
 pub use ::pcie::{Endpoint, PciCapability, PcieGeneric};
@@ -15,7 +18,7 @@ use crate::{
 
 static PCIE: Once<Mutex<Vec<PcieEnumterator>>> = Once::new();
 
-pub type FnOnProbe = fn(ep: Rc<Endpoint>, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
+pub type FnOnProbe = fn(ep: &mut EndpointRc, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Id {
@@ -54,6 +57,32 @@ pub(crate) fn probe_with(
         ctrl.probe(registers, stop_if_fail)?;
     }
     Ok(())
+}
+
+pub struct EndpointRc(Option<Endpoint>);
+
+impl EndpointRc {
+    fn new(ep: Endpoint) -> Self {
+        Self(Some(ep))
+    }
+
+    pub fn take(self) -> Endpoint {
+        self.0.unwrap()
+    }
+}
+
+impl Deref for EndpointRc {
+    type Target = Endpoint;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap()
+    }
+}
+
+impl DerefMut for EndpointRc {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut().unwrap()
+    }
 }
 
 struct PcieEnumterator {
@@ -99,7 +128,8 @@ impl PcieEnumterator {
         if self.probed.contains(&id) {
             return Ok(());
         }
-        let endpoint = Rc::new(endpoint);
+
+        let mut endpoint = EndpointRc::new(endpoint);
 
         for register in registers {
             let Some(pci_probe) = register.probe_kinds.iter().find_map(|probe| {
@@ -116,7 +146,7 @@ impl PcieEnumterator {
             desc.irq_parent = self.ctrl.descriptor().irq_parent;
 
             let plat_dev = PlatformDevice::new(desc);
-            match (pci_probe)(endpoint.clone(), plat_dev) {
+            match (pci_probe)(&mut endpoint, plat_dev) {
                 Ok(_) => {
                     self.probed.insert(id);
                     return Ok(());
