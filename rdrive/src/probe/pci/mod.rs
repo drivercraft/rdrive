@@ -1,7 +1,7 @@
 use core::ptr::NonNull;
 
 use ::pcie::*;
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet, rc::Rc, vec::Vec};
 use spin::{Mutex, Once};
 
 pub use ::pcie::{Endpoint, PciCapability, PcieGeneric};
@@ -15,18 +15,12 @@ use crate::{
 
 static PCIE: Once<Mutex<Vec<PcieEnumterator>>> = Once::new();
 
-/// Note: need give endpoint back if return Err
-pub type FnOnProbe = fn(ep: Endpoint, plat_dev: PlatformDevice) -> Result<(), PciProbeError>;
+pub type FnOnProbe = fn(ep: Rc<Endpoint>, plat_dev: PlatformDevice) -> Result<(), OnProbeError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Id {
     vendor: u16,
     device: u16,
-}
-
-pub struct PciProbeError {
-    pub ep: Endpoint,
-    pub kind: OnProbeError,
 }
 
 pub fn new_driver_generic(mmio_base: NonNull<u8>) -> PcieController {
@@ -94,7 +88,7 @@ impl PcieEnumterator {
 
     fn probe_one(
         &mut self,
-        mut endpoint: Endpoint,
+        endpoint: Endpoint,
         registers: &[DriverRegister],
         stop_if_fail: bool,
     ) -> Result<(), ProbeError> {
@@ -105,6 +99,8 @@ impl PcieEnumterator {
         if self.probed.contains(&id) {
             return Ok(());
         }
+        let endpoint = Rc::new(endpoint);
+
         for register in registers {
             let Some(pci_probe) = register.probe_kinds.iter().find_map(|probe| {
                 if let ProbeKind::Pci { on_probe } = probe {
@@ -120,24 +116,20 @@ impl PcieEnumterator {
             desc.irq_parent = self.ctrl.descriptor().irq_parent;
 
             let plat_dev = PlatformDevice::new(desc);
-
-            match (pci_probe)(endpoint, plat_dev) {
+            match (pci_probe)(endpoint.clone(), plat_dev) {
                 Ok(_) => {
                     self.probed.insert(id);
                     return Ok(());
                 }
-                Err(e) => {
-                    endpoint = e.ep;
-                    match e.kind {
-                        OnProbeError::NotMatch => continue,
-                        e => {
-                            if stop_if_fail {
-                                return Err(ProbeError::from(e));
-                            }
-                            warn!("Probe failed: {e}");
+                Err(e) => match e {
+                    OnProbeError::NotMatch => continue,
+                    e => {
+                        if stop_if_fail {
+                            return Err(ProbeError::from(e));
                         }
+                        warn!("Probe failed: {e}");
                     }
-                }
+                },
             }
         }
 
