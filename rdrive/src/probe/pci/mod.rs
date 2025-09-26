@@ -66,8 +66,8 @@ impl EndpointRc {
         Self(Some(ep))
     }
 
-    pub fn take(self) -> Endpoint {
-        self.0.unwrap()
+    pub fn take(&mut self) -> Endpoint {
+        self.0.take()
     }
 }
 
