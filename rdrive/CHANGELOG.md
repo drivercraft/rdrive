@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.18.5](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.4...rdrive-v0.18.5) - 2025-09-25
+## [0.18.6](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.4...rdrive-v0.18.6) - 2025-09-25
 
 ### Fixed
 
