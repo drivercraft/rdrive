@@ -4,8 +4,8 @@ use ::pcie::*;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use spin::{Mutex, Once};
 
+pub use ::pcie::{Endpoint, PciCapability, PcieGeneric};
 pub use rdif_pcie::{DriverGeneric, PciAddress, PciMem32, PciMem64, PcieController};
-pub use ::pcie::{PcieGeneric, Endpoint, PciCapability};
 
 use crate::{
     Descriptor, Device, PlatformDevice, ProbeError, get_list,
@@ -15,6 +15,7 @@ use crate::{
 
 static PCIE: Once<Mutex<Vec<PcieEnumterator>>> = Once::new();
 
+/// Note: need give endpoint back if return Err
 pub type FnOnProbe = fn(ep: Endpoint, plat_dev: PlatformDevice) -> Result<(), PciProbeError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -76,7 +77,7 @@ impl PcieEnumterator {
 
         for ep in enumerate_by_controller(&mut g, None) {
             debug!("PCIe endpiont: {}", ep);
-            match self.probe_one(ep, registers) {
+            match self.probe_one(ep, registers, stop_if_fail) {
                 Ok(_) => {} // Successfully probed, move to the next
                 Err(e) => {
                     if stop_if_fail {
@@ -95,6 +96,7 @@ impl PcieEnumterator {
         &mut self,
         mut endpoint: Endpoint,
         registers: &[DriverRegister],
+        stop_if_fail: bool,
     ) -> Result<(), ProbeError> {
         let id = Id {
             vendor: endpoint.vendor_id(),
@@ -121,21 +123,24 @@ impl PcieEnumterator {
 
             match (pci_probe)(endpoint, plat_dev) {
                 Ok(_) => {
-                    break;
+                    self.probed.insert(id);
+                    return Ok(());
                 }
                 Err(e) => {
                     endpoint = e.ep;
                     match e.kind {
                         OnProbeError::NotMatch => continue,
                         e => {
-                            return Err(ProbeError::from(e));
+                            if stop_if_fail {
+                                return Err(ProbeError::from(e));
+                            }
+                            warn!("Probe failed: {e}");
                         }
                     }
                 }
             }
         }
 
-        self.probed.insert(id);
         Ok(())
     }
 }
