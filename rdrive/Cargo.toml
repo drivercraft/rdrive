@@ -25,4 +25,4 @@ rdif-pcie = {workspace = true}
 
 [dev-dependencies]
 rdif-intc = { version = "0.12", path = "../interface/rdif-intc"}
-rdif-serial = { version = "0.4", path = "../interface/rdif-serial"}
+# rdif-serial = { version = "0.4", path = "../interface/rdif-serial"}
