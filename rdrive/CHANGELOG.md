@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.11](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.10...rdrive-v0.18.11) - 2025-10-16
+
+### Other
+
+- 更新时钟驱动实现，替换 UART 驱动并调整探测函数
+- serial
+
 ## [0.18.7](https://github.com/drivercraft/rdrive/compare/rdrive-v0.18.4...rdrive-v0.18.7) - 2025-09-25
 
 ### Fixed
