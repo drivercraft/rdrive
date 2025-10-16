@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/drivercraft/rdrive/compare/rdif-serial-v0.5.1...rdif-serial-v0.5.2) - 2025-10-16
+
+### Other
+
+- Merge branch 'main' of github.com:drivercraft/rdrive
+- 优化代码格式和结构，调整导入顺序，简化内存管理逻辑
+
 ## [0.5.1](https://github.com/drivercraft/rdrive/compare/rdif-serial-v0.5.0...rdif-serial-v0.5.1) - 2025-10-16
 
 ### Other
