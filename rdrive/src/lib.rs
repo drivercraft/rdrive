@@ -181,34 +181,34 @@ pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
 ///     PlatformDevice,
 /// };
 ///
-/// struct UartDriver {}
+/// struct ClkDriver {}
 ///
-/// impl DriverGeneric for UartDriver {
-///     fn open(&mut self) -> Result<(), rdrive::KError> { todo!() }
-///     fn close(&mut self) -> Result<(), rdrive::KError> { todo!() }
+/// impl DriverGeneric for ClkDriver {
+///     fn open(&mut self) -> Result<(), rdrive::KError> { Ok(()) }
+///     fn close(&mut self) -> Result<(), rdrive::KError> { Ok(()) }
 /// }
 ///
-/// impl rdif_serial::Interface for UartDriver {
-///     fn handle_irq(&mut self) { todo!() }
-///     fn take_tx(&mut self) -> Option<Box<(dyn rdif_serial::io::Write + 'static)>> { todo!() }
-///     fn take_rx(&mut self) -> Option<Box<(dyn rdif_serial::io::Read + 'static)>> { todo!() }
+/// impl rdif_clk::Interface for ClkDriver {
+///     fn perper_enable(&mut self) {}
+///     fn get_rate(&self, _id: rdif_clk::ClockId) -> Result<u64, rdrive::KError> { Ok(1000000) }
+///     fn set_rate(&mut self, _id: rdif_clk::ClockId, _rate: u64) -> Result<(), rdrive::KError> { Ok(()) }
 /// }
 ///
 /// // Define probe function
-/// fn probe_uart(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), OnProbeError> {
+/// fn probe_clk(fdt: FdtInfo<'_>, dev: PlatformDevice) -> Result<(), OnProbeError> {
 ///     // Implement specific device probing logic
-///     dev.register(rdif_serial::Serial::new(UartDriver{}));
+///     dev.register(rdif_clk::Clk::new(ClkDriver{}));
 ///     Ok(())
 /// }
 ///
 /// // Use macro to generate driver registration module
 /// module_driver! {
-///     name: "UART Driver",
+///     name: "CLK Driver",
 ///     level: ProbeLevel::PostKernel,
-///     priority: ProbePriority::DEFAULT,
+///     priority: ProbePriority::CLK,
 ///     probe_kinds: &[ProbeKind::Fdt {
-///         compatibles: &["ns16550a", "arm,pl011"],
-///         // Use `probe_uart` above; this usage is because doctests cannot find the parent module.
+///         compatibles: &["fixed-clock"],
+///         // Use `probe_clk` above; this usage is because doctests cannot find the parent module.
 ///         on_probe: |fdt, dev|{
 ///             Ok(())
 ///         },
