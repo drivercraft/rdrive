@@ -36,8 +36,8 @@ pub enum ConfigError {
 }
 
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegisterTransferError {
-    #[error("Data overrun")]
+pub enum TransferError {
+    #[error("Data overrun by `{0:#x}`")]
     Overrun(u8),
     #[error("Parity error")]
     Parity,
@@ -45,31 +45,8 @@ pub enum RegisterTransferError {
     Framing,
     #[error("Break condition")]
     Break,
-}
-
-#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TransferError {
-    #[error("Data overrun")]
-    Overrun,
-    #[error("Parity error")]
-    Parity,
-    #[error("Framing error")]
-    Framing,
-    #[error("Break condition")]
-    Break,
-    #[error("Serial port released")]
-    SerialReleased,
-}
-
-impl From<RegisterTransferError> for TransferError {
-    fn from(value: RegisterTransferError) -> Self {
-        match value {
-            RegisterTransferError::Overrun(_) => TransferError::Overrun,
-            RegisterTransferError::Parity => TransferError::Parity,
-            RegisterTransferError::Framing => TransferError::Framing,
-            RegisterTransferError::Break => TransferError::Break,
-        }
-    }
+    #[error("Serial closed")]
+    Closed,
 }
 
 /// 数据位配置
@@ -104,6 +81,7 @@ bitflags! {
     /// 中断状态标志
     #[derive(Debug, Clone, Copy)]
     pub struct InterruptMask: u32 {
+        /// received data, including error data
         const RX_AVAILABLE = 0x01;
         const TX_EMPTY = 0x02;
     }
@@ -175,7 +153,7 @@ impl Config {
 pub trait Register: Send + Sync + Any + 'static {
     // ==================== 基础数据传输 ====================
     fn write_byte(&mut self, byte: u8);
-    fn read_byte(&mut self) -> Result<u8, RegisterTransferError>;
+    fn read_byte(&mut self) -> Result<u8, TransferError>;
 
     // ==================== 配置管理 ====================
     fn set_config(&mut self, config: &Config) -> Result<(), ConfigError>;
@@ -208,7 +186,7 @@ pub trait Register: Send + Sync + Any + 'static {
     // ==================== 传输状态查询 ====================
 
     /// 获取线路状态
-    fn line_status(&self) -> LineStatus;
+    fn line_status(&mut self) -> LineStatus;
 
     // ==================== 底层寄存器访问 ====================
     /// 直接读取寄存器
@@ -219,23 +197,15 @@ pub trait Register: Send + Sync + Any + 'static {
     fn get_base(&self) -> usize;
     fn set_base(&mut self, base: usize);
 
-    fn read_buf(&mut self, buf: &mut [u8]) -> Result<usize, RegisterTransferError> {
+    fn read_buf(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
         let mut read_count = 0;
-        let mut overrun = false;
         for byte in buf.iter_mut() {
             if !self.line_status().can_read() {
-                if overrun {
-                    return Err(RegisterTransferError::Overrun(0));
-                }
                 break;
             }
             rmb();
             match self.read_byte() {
                 Ok(b) => *byte = b,
-                Err(RegisterTransferError::Overrun(u8)) => {
-                    overrun = true;
-                    *byte = u8;
-                }
                 Err(e) => return Err(e),
             }
 

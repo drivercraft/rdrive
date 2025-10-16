@@ -176,7 +176,7 @@ impl<T: Register> Drop for Sender<T> {
 
 impl<T: Register> crate::TSender for Sender<T> {
     fn send(&mut self, buf: &[u8]) -> Result<usize, TransferError> {
-        let s = self.s.upgrade().ok_or(TransferError::SerialReleased)?;
+        let s = self.s.upgrade().ok_or(TransferError::Closed)?;
         let s = unsafe { &mut *s.0.get() };
         Ok(s.write_buf(buf))
     }
@@ -191,9 +191,9 @@ unsafe impl<T: Register> Send for Reciever<T> {}
 
 impl<T: Register> crate::TReciever for Reciever<T> {
     fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
-        let s = self.s.upgrade().ok_or(TransferError::SerialReleased)?;
+        let s = self.s.upgrade().ok_or(TransferError::Closed)?;
         let s = unsafe { &mut *s.0.get() };
-        Ok(s.read_buf(buf)?)
+        s.read_buf(buf)
     }
     fn clean_fifo(&mut self) {
         let mut buff = [0u8; 16];
