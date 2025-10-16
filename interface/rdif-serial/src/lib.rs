@@ -10,6 +10,11 @@ use mbarrier::rmb;
 
 pub use rdif_base::{DriverGeneric, KError};
 
+pub type BIrqHandler = Box<dyn TIrqHandler>;
+pub type BSender = Box<dyn TSender>;
+pub type BReciever = Box<dyn TReciever>;
+pub type BSerial = Box<dyn Interface>;
+
 mod serial;
 
 pub use serial::*;
@@ -191,10 +196,10 @@ pub trait Register: Clone + Send + Sync + Any + 'static {
     fn is_loopback_enabled(&self) -> bool;
 
     // ==================== 中断管理 ====================
-    /// 使能中断
-    fn enable_interrupts(&mut self, mask: InterruptMask);
-    /// 禁用中断
-    fn disable_interrupts(&mut self, mask: InterruptMask);
+    /// 设置中断使能掩码
+    fn set_irq_mask(&mut self, mask: InterruptMask);
+    /// 获取当前中断使能掩码
+    fn get_irq_mask(&self) -> InterruptMask;
     /// 获取并清除所有中断状态
     fn clean_interrupt_status(&mut self) -> InterruptMask;
 
@@ -232,7 +237,6 @@ pub trait Register: Clone + Send + Sync + Any + 'static {
                 Err(e) => return Err(e),
             }
 
-            *byte = self.read_byte()?;
             read_count += 1;
         }
 
@@ -276,12 +280,11 @@ pub trait Interface: DriverGeneric {
 
     fn enable_interrupts(&mut self, mask: InterruptMask);
     fn disable_interrupts(&mut self, mask: InterruptMask);
-    /// 获取并清除所有中断状态
-    fn clean_interrupt_status(&mut self) -> InterruptMask;
+    fn get_enabled_interrupts(&self) -> InterruptMask;
 }
 
 pub trait TIrqHandler: Send + Sync + 'static {
-    fn clean_interrupt_status(&mut self) -> InterruptMask;
+    fn clean_interrupt_status(&self) -> InterruptMask;
 }
 
 pub trait TSender: Send + 'static {
@@ -292,53 +295,6 @@ pub trait TSender: Send + 'static {
 pub trait TReciever: Send + 'static {
     /// Recv data into buf, return recv bytes. If return bytes is less than buf.len(), it means no more data.
     fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError>;
+
+    fn clean_fifo(&mut self);
 }
-
-// pub trait Interface: DriverGeneric {
-//     /// Call in irq handler.
-//     fn handle_irq(&mut self);
-//     /// [`Sender`] will be given back when dropped.
-//     fn take_tx(&mut self) -> Option<Box<dyn io::Write>>;
-//     /// [`Reciever`] will be given back when dropped.
-//     fn take_rx(&mut self) -> Option<Box<dyn io::Read>>;
-// }
-
-// /// Serial error kind.
-// ///
-// /// This represents a common set of serial operation errors. HAL implementations are
-// /// free to define more specific or additional error types. However, by providing
-// /// a mapping to these common serial errors, generic code can still react to them.
-// #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-// #[non_exhaustive]
-// pub enum SerialError {
-//     /// The peripheral receive buffer was overrun.
-//     #[error("The peripheral receive buffer was overrun.")]
-//     Overrun,
-//     /// Received data does not conform to the peripheral configuration.
-//     /// Can be caused by a misconfigured device on either end of the serial line.
-//     #[error("Received data does not conform to the peripheral configuration.")]
-//     FrameFormat,
-//     /// Parity check failed.
-//     #[error("Parity check failed.")]
-//     Parity,
-//     /// Serial line is too noisy to read valid data.
-//     #[error("Serial line is too noisy to read valid data.")]
-//     Noise,
-//     /// Device was closed.
-//     #[error("Device was closed.")]
-//     Closed,
-//     /// A different error occurred. The original error may contain more information.
-//     #[error("Unknown error.")]
-//     Other,
-// }
-
-// impl From<SerialError> for io::ErrorKind {
-//     fn from(value: SerialError) -> Self {
-//         match value {
-//             SerialError::Closed => io::ErrorKind::BrokenPipe,
-//             _ => io::ErrorKind::Other(Box::new(value)),
-//         }
-//     }
-// }
-
-// def_driver!(Serial, Interface);

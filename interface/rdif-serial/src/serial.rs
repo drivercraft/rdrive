@@ -59,14 +59,14 @@ impl<T: Register> SerialRaw<T> {
     }
 
     pub fn enable_interrupts(&mut self, mask: InterruptMask) {
-        self.inner.enable_interrupts(mask)
+        self.inner.set_irq_mask(mask | self.inner.get_irq_mask())
     }
     pub fn disable_interrupts(&mut self, mask: InterruptMask) {
-        self.inner.disable_interrupts(mask)
+        self.inner.set_irq_mask(self.inner.get_irq_mask() & !mask)
     }
-    /// 获取并清除所有中断状态
-    pub fn clean_interrupt_status(&mut self) -> InterruptMask {
-        self.inner.clean_interrupt_status()
+
+    pub fn get_enabled_interrupts(&self) -> InterruptMask {
+        self.inner.get_irq_mask()
     }
 
     pub fn take_tx(&mut self) -> Option<SenderRaw<T>> {
@@ -98,7 +98,7 @@ impl<T: Register> SerialRaw<T> {
     }
 
     pub fn set_irq_handler(&mut self, handler: IrqHandlerRaw<T>) -> Result<(), NotMatchError> {
-        if self.inner.get_base() != handler.inner.get_base() {
+        if self.inner.get_base() != handler.get_base() {
             return Err(NotMatchError);
         }
         self.handler.replace(handler);
@@ -215,8 +215,8 @@ impl<T: Register> crate::Interface for Serial<T> {
         self.inner_mut().disable_interrupts(mask)
     }
 
-    fn clean_interrupt_status(&mut self) -> InterruptMask {
-        self.inner_mut().clean_interrupt_status()
+    fn get_enabled_interrupts(&self) -> InterruptMask {
+        self.inner().get_enabled_interrupts()
     }
 }
 
@@ -240,7 +240,7 @@ impl<T: Register> SenderRaw<T> {
     fn new(inner: T) -> Self {
         Self { inner }
     }
-    fn send(&mut self, buf: &[u8]) -> usize {
+    pub fn send(&mut self, buf: &[u8]) -> usize {
         self.inner.write_buf(buf)
     }
 }
@@ -278,9 +278,18 @@ impl<T: Register> RecieverRaw<T> {
         Self { inner }
     }
 
-    fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
+    pub fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
         let n = self.inner.read_buf(buf)?;
         Ok(n)
+    }
+
+    pub fn clean_fifo(&mut self) {
+        let mut buff = [0u8; 16];
+        while let Ok(n) = self.recive(&mut buff) {
+            if n < 16 {
+                break;
+            }
+        }
     }
 }
 
@@ -294,6 +303,9 @@ unsafe impl<T: Register> Send for Reciever<T> {}
 impl<T: Register> crate::TReciever for Reciever<T> {
     fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
         self.inner.as_mut().unwrap().recive(buf)
+    }
+    fn clean_fifo(&mut self) {
+        self.inner.as_mut().unwrap().clean_fifo();
     }
 }
 
@@ -309,15 +321,24 @@ impl<T: Register> Drop for Reciever<T> {
 }
 
 pub struct IrqHandlerRaw<T: Register> {
-    inner: T,
+    inner: UnsafeCell<T>,
 }
+
+unsafe impl<T: Register> Send for IrqHandlerRaw<T> {}
+unsafe impl<T: Register> Sync for IrqHandlerRaw<T> {}
 
 impl<T: Register> IrqHandlerRaw<T> {
     fn new(inner: T) -> Self {
-        Self { inner }
+        Self {
+            inner: UnsafeCell::new(inner),
+        }
     }
-    fn clean_interrupt_status(&mut self) -> InterruptMask {
-        self.inner.clean_interrupt_status()
+    pub fn clean_interrupt_status(&self) -> InterruptMask {
+        unsafe { (*self.inner.get()).clean_interrupt_status() }
+    }
+
+    fn get_base(&self) -> usize {
+        unsafe { (*self.inner.get()).get_base() }
     }
 }
 
@@ -329,8 +350,8 @@ unsafe impl<T: Register> Send for IrqHandler<T> {}
 unsafe impl<T: Register> Sync for IrqHandler<T> {}
 
 impl<T: Register> crate::TIrqHandler for IrqHandler<T> {
-    fn clean_interrupt_status(&mut self) -> InterruptMask {
-        self.inner.as_mut().unwrap().clean_interrupt_status()
+    fn clean_interrupt_status(&self) -> InterruptMask {
+        self.inner.as_ref().unwrap().clean_interrupt_status()
     }
 }
 
