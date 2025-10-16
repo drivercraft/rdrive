@@ -288,8 +288,9 @@ mod tests {
                 .unwrap(),
             RangeInclusive::new(0x500, 0x9FD).unwrap()
         );
-        assert!(pool
-            .free(&RangeInclusive::new(0x500, 0x9FD).unwrap())
-            .is_ok());
+        assert!(
+            pool.free(&RangeInclusive::new(0x500, 0x9FD).unwrap())
+                .is_ok()
+        );
     }
 }

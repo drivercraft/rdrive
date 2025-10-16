@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use core::{any::Any, ptr::NonNull};
+use core::any::Any;
 
 use alloc::boxed::Box;
 use bitflags::bitflags;
@@ -57,6 +57,8 @@ pub enum TransferError {
     Framing,
     #[error("Break condition")]
     Break,
+    #[error("Serial port released")]
+    SerialReleased,
 }
 
 impl From<RegisterTransferError> for TransferError {
@@ -170,7 +172,7 @@ impl Config {
     }
 }
 
-pub trait Register: Clone + Send + Sync + Any + 'static {
+pub trait Register: Send + Sync + Any + 'static {
     // ==================== 基础数据传输 ====================
     fn write_byte(&mut self, byte: u8);
     fn read_byte(&self) -> Result<u8, RegisterTransferError>;
@@ -215,7 +217,7 @@ pub trait Register: Clone + Send + Sync + Any + 'static {
     fn write_reg(&mut self, offset: usize, value: u32);
 
     fn get_base(&self) -> usize;
-    fn set_base(&mut self, base: NonNull<u8>);
+    fn set_base(&mut self, base: usize);
 
     fn read_buf(&mut self, buf: &mut [u8]) -> Result<usize, RegisterTransferError> {
         let mut read_count = 0;
@@ -257,14 +259,14 @@ pub trait Register: Clone + Send + Sync + Any + 'static {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NotMatchError;
-
 pub trait Interface: DriverGeneric {
     fn irq_handler(&mut self) -> Option<Box<dyn TIrqHandler>>;
     fn take_tx(&mut self) -> Option<Box<dyn TSender>>;
     fn take_rx(&mut self) -> Option<Box<dyn TReciever>>;
+    /// Base address of the serial port
     fn base(&self) -> usize;
+    /// Set base address of the serial port
+    fn set_base(&mut self, base: usize);
 
     fn set_config(&mut self, config: &Config) -> Result<(), ConfigError>;
 
@@ -289,7 +291,7 @@ pub trait TIrqHandler: Send + Sync + 'static {
 
 pub trait TSender: Send + 'static {
     /// Send data from buf, return sent bytes. If return bytes is less than buf.len(), it means no more space, need to retry later.
-    fn send(&mut self, buf: &[u8]) -> usize;
+    fn send(&mut self, buf: &[u8]) -> Result<usize, TransferError>;
 }
 
 pub trait TReciever: Send + 'static {
