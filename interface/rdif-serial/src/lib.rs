@@ -175,7 +175,7 @@ impl Config {
 pub trait Register: Send + Sync + Any + 'static {
     // ==================== 基础数据传输 ====================
     fn write_byte(&mut self, byte: u8);
-    fn read_byte(&self) -> Result<u8, RegisterTransferError>;
+    fn read_byte(&mut self) -> Result<u8, RegisterTransferError>;
 
     // ==================== 配置管理 ====================
     fn set_config(&mut self, config: &Config) -> Result<(), ConfigError>;

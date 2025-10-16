@@ -9,19 +9,20 @@ use rdif_base::{DriverGeneric, KError};
 use crate::{InterruptMask, Register, TransferError};
 
 pub struct Serial<T: Register> {
-    inner: Arc<UnsafeCell<T>>,
+    inner: Arc<Inner<T>>,
     is_tx_taken: Arc<AtomicBool>,
     is_rx_taken: Arc<AtomicBool>,
     is_irq_handler_taken: Arc<AtomicBool>,
 }
 
-unsafe impl<T: Register> Send for Serial<T> {}
-unsafe impl<T: Register> Sync for Serial<T> {}
+struct Inner<T: Register>(UnsafeCell<T>);
+unsafe impl<T: Register> Send for Inner<T> {}
+unsafe impl<T: Register> Sync for Inner<T> {}
 
 impl<T: Register> Serial<T> {
     pub fn new(inner: T) -> Self {
         Self {
-            inner: Arc::new(UnsafeCell::new(inner)),
+            inner: Arc::new(Inner(UnsafeCell::new(inner))),
             is_tx_taken: Arc::new(AtomicBool::new(false)),
             is_rx_taken: Arc::new(AtomicBool::new(false)),
             is_irq_handler_taken: Arc::new(AtomicBool::new(false)),
@@ -29,11 +30,11 @@ impl<T: Register> Serial<T> {
     }
 
     fn inner_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.inner.get() }
+        unsafe { &mut *self.inner.0.get() }
     }
 
     fn inner(&self) -> &T {
-        unsafe { &*self.inner.get() }
+        unsafe { &*self.inner.0.get() }
     }
 
     pub fn open(&mut self) -> Result<(), KError> {
@@ -161,7 +162,7 @@ impl<T: Register> DriverGeneric for Serial<T> {
 }
 
 pub struct Sender<T: Register> {
-    s: Weak<UnsafeCell<T>>,
+    s: Weak<Inner<T>>,
     b: Arc<AtomicBool>,
 }
 
@@ -176,13 +177,13 @@ impl<T: Register> Drop for Sender<T> {
 impl<T: Register> crate::TSender for Sender<T> {
     fn send(&mut self, buf: &[u8]) -> Result<usize, TransferError> {
         let s = self.s.upgrade().ok_or(TransferError::SerialReleased)?;
-        let s = unsafe { &mut *s.get() };
+        let s = unsafe { &mut *s.0.get() };
         Ok(s.write_buf(buf))
     }
 }
 
 pub struct Reciever<T: Register> {
-    s: Weak<UnsafeCell<T>>,
+    s: Weak<Inner<T>>,
     b: Arc<AtomicBool>,
 }
 
@@ -191,7 +192,7 @@ unsafe impl<T: Register> Send for Reciever<T> {}
 impl<T: Register> crate::TReciever for Reciever<T> {
     fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
         let s = self.s.upgrade().ok_or(TransferError::SerialReleased)?;
-        let s = unsafe { &mut *s.get() };
+        let s = unsafe { &mut *s.0.get() };
         Ok(s.read_buf(buf)?)
     }
     fn clean_fifo(&mut self) {
@@ -211,7 +212,7 @@ impl<T: Register> Drop for Reciever<T> {
 }
 
 pub struct IrqHandler<T: Register> {
-    s: Arc<UnsafeCell<T>>,
+    s: Arc<Inner<T>>,
     b: Arc<AtomicBool>,
 }
 unsafe impl<T: Register> Send for IrqHandler<T> {}
@@ -219,7 +220,7 @@ unsafe impl<T: Register> Sync for IrqHandler<T> {}
 
 impl<T: Register> crate::TIrqHandler for IrqHandler<T> {
     fn clean_interrupt_status(&self) -> InterruptMask {
-        let s = unsafe { &mut *self.s.get() };
+        let s = unsafe { &mut *self.s.0.get() };
         s.clean_interrupt_status()
     }
 }
