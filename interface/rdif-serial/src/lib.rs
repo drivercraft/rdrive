@@ -15,6 +15,16 @@ pub type BSender = Box<dyn TSender>;
 pub type BReciever = Box<dyn TReciever>;
 pub type BSerial = Box<dyn Interface>;
 
+impl DriverGeneric for Box<dyn Interface> {
+    fn open(&mut self) -> Result<(), KError> {
+        self.as_mut().open()
+    }
+
+    fn close(&mut self) -> Result<(), KError> {
+        self.as_mut().close()
+    }
+}
+
 mod serial;
 
 pub use serial::*;

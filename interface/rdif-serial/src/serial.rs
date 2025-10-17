@@ -29,6 +29,10 @@ impl<T: Register> Serial<T> {
         }
     }
 
+    pub fn new_boxed(inner: T) -> Box<dyn crate::Interface> {
+        Box::new(Self::new(inner)) as _
+    }
+
     fn inner_mut(&mut self) -> &mut T {
         unsafe { &mut *self.inner.0.get() }
     }
