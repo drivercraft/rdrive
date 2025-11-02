@@ -1,18 +1,18 @@
 [package]
-name = "rdif-serial"
-version = "0.5.4"
-edition.workspace = true
-repository.workspace = true
 authors = ["周睿 <zrufo747@outlook.com>"]
-license = "MIT"
-description = "Driver Interface base definition."
-keywords = ["os", "driver"]
 categories = ["embedded", "no-std"]
+description = "Driver Interface base definition."
+edition.workspace = true
+keywords = ["os", "driver"]
+license = "MIT"
+name = "rdif-serial"
+repository.workspace = true
+version = "0.6.0"
 
 [dependencies]
-rdif-base = { workspace = true }
-futures = { version = "0.3", default-features = false, features = ["alloc"] }
-spin = "0.10"
-thiserror = { version = "2", default-features = false }
 bitflags = "2.8"
-mbarrier = "0.1"
+futures = {version = "0.3", default-features = false, features = ["alloc"]}
+rdif-base = {workspace = true}
+spin = "0.10"
+thiserror = {version = "2", default-features = false}
+heapless = "0.9"

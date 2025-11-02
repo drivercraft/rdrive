@@ -2,11 +2,14 @@
 
 extern crate alloc;
 
-use core::any::Any;
+use core::{
+    any::Any,
+    fmt::{Debug, Display},
+    num::NonZeroU32,
+};
 
 use alloc::boxed::Box;
 use bitflags::bitflags;
-use mbarrier::rmb;
 
 pub use rdif_base::{DriverGeneric, KError};
 
@@ -43,6 +46,22 @@ pub enum ConfigError {
     RegisterError,
     /// 超时错误
     Timeout,
+}
+
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TransBytesError {
+    pub bytes_transferred: usize,
+    pub kind: TransferError,
+}
+
+impl Display for TransBytesError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Transfer error after transferring {} bytes: {}",
+            self.bytes_transferred, self.kind
+        )
+    }
 }
 
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,25 +126,6 @@ impl InterruptMask {
     }
 }
 
-bitflags! {
-    /// 线路状态标志
-    #[derive(Debug, Clone, Copy)]
-    pub struct LineStatus: u32 {
-        const DATA_READY = 0x01;
-        const TX_HOLDING_EMPTY = 0x20;
-    }
-}
-
-impl LineStatus {
-    pub fn can_read(&self) -> bool {
-        self.contains(LineStatus::DATA_READY)
-    }
-
-    pub fn can_write(&self) -> bool {
-        self.contains(LineStatus::TX_HOLDING_EMPTY)
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub baudrate: Option<u32>,
@@ -160,10 +160,12 @@ impl Config {
     }
 }
 
-pub trait Register: Send + Sync + Any + 'static {
-    // ==================== 基础数据传输 ====================
-    fn write_byte(&mut self, byte: u8);
-    fn read_byte(&mut self) -> Result<u8, TransferError>;
+pub trait InterfaceRaw: Send + Any + 'static {
+    type IrqHandler: TIrqHandler;
+    type Sender: TSender;
+    type Reciever: TReciever;
+
+    fn base_addr(&self) -> usize;
 
     // ==================== 配置管理 ====================
     fn set_config(&mut self, config: &Config) -> Result<(), ConfigError>;
@@ -172,7 +174,7 @@ pub trait Register: Send + Sync + Any + 'static {
     fn data_bits(&self) -> DataBits;
     fn stop_bits(&self) -> StopBits;
     fn parity(&self) -> Parity;
-    fn clock_freq(&self) -> u32;
+    fn clock_freq(&self) -> Option<NonZeroU32>;
 
     fn open(&mut self);
     fn close(&mut self);
@@ -190,52 +192,48 @@ pub trait Register: Send + Sync + Any + 'static {
     fn set_irq_mask(&mut self, mask: InterruptMask);
     /// 获取当前中断使能掩码
     fn get_irq_mask(&self) -> InterruptMask;
-    /// 获取并清除所有中断状态
-    fn clean_interrupt_status(&mut self) -> InterruptMask;
 
-    // ==================== 传输状态查询 ====================
+    fn irq_handler(&mut self) -> Option<Self::IrqHandler>;
+    fn take_tx(&mut self) -> Option<Self::Sender>;
+    fn take_rx(&mut self) -> Option<Self::Reciever>;
 
-    /// 获取线路状态
-    fn line_status(&mut self) -> LineStatus;
+    fn set_tx(&mut self, tx: Self::Sender) -> Result<(), SetBackError>;
+    fn set_rx(&mut self, rx: Self::Reciever) -> Result<(), SetBackError>;
+}
 
-    // ==================== 底层寄存器访问 ====================
-    /// 直接读取寄存器
-    fn read_reg(&self, offset: usize) -> u32;
-    /// 直接写入寄存器
-    fn write_reg(&mut self, offset: usize, value: u32);
+#[derive(Clone, Copy)]
+pub struct SetBackError {
+    want: usize,
+    actual: usize,
+}
 
-    fn get_base(&self) -> usize;
-    fn set_base(&mut self, base: usize);
-
-    fn read_buf(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
-        let mut read_count = 0;
-        for byte in buf.iter_mut() {
-            if !self.line_status().can_read() {
-                break;
-            }
-            rmb();
-            match self.read_byte() {
-                Ok(b) => *byte = b,
-                Err(e) => return Err(e),
-            }
-
-            read_count += 1;
+impl SetBackError {
+    /// Create a new SetBackError
+    /// # Safety
+    ///
+    pub fn new(want: usize, actual: usize) -> Self {
+        Self {
+            want: want as _,
+            actual: actual as _,
         }
-
-        Ok(read_count)
     }
+}
 
-    fn write_buf(&mut self, buf: &[u8]) -> usize {
-        let mut write_count = 0;
-        for &byte in buf.iter() {
-            if !self.line_status().can_write() {
-                break;
-            }
-            rmb();
-            self.write_byte(byte);
-            write_count += 1;
-        }
-        write_count
+impl core::error::Error for SetBackError {}
+
+impl Debug for SetBackError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Failed to set back, base address not eq  {:#x} != {:#x}",
+            self.want, self.actual
+        )
+    }
+}
+
+impl Display for SetBackError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Debug::fmt(self, f)
     }
 }
 
@@ -244,9 +242,7 @@ pub trait Interface: DriverGeneric {
     fn take_tx(&mut self) -> Option<Box<dyn TSender>>;
     fn take_rx(&mut self) -> Option<Box<dyn TReciever>>;
     /// Base address of the serial port
-    fn base(&self) -> usize;
-    /// Set base address of the serial port
-    fn set_base(&mut self, base: usize);
+    fn base_addr(&self) -> usize;
 
     fn set_config(&mut self, config: &Config) -> Result<(), ConfigError>;
 
@@ -254,7 +250,7 @@ pub trait Interface: DriverGeneric {
     fn data_bits(&self) -> DataBits;
     fn stop_bits(&self) -> StopBits;
     fn parity(&self) -> Parity;
-    fn clock_freq(&self) -> u32;
+    fn clock_freq(&self) -> Option<NonZeroU32>;
 
     fn enable_loopback(&mut self);
     fn disable_loopback(&mut self);
@@ -270,13 +266,43 @@ pub trait TIrqHandler: Send + Sync + 'static {
 }
 
 pub trait TSender: Send + 'static {
-    /// Send data from buf, return sent bytes. If return bytes is less than buf.len(), it means no more space, need to retry later.
-    fn send(&mut self, buf: &[u8]) -> Result<usize, TransferError>;
+    fn write_byte(&mut self, byte: u8) -> bool;
+
+    fn write_bytes(&mut self, bytes: &[u8]) -> usize {
+        let mut written = 0;
+        for &byte in bytes.iter() {
+            if !self.write_byte(byte) {
+                break;
+            }
+            written += 1;
+        }
+        written
+    }
 }
 
 pub trait TReciever: Send + 'static {
-    /// Recv data into buf, return recv bytes. If return bytes is less than buf.len(), it means no more data.
-    fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError>;
+    fn read_byte(&mut self) -> Option<Result<u8, TransferError>>;
 
-    fn clean_fifo(&mut self);
+    /// Recv data into buf, return recv bytes. If return bytes is less than buf.len(), it means no more data.
+    fn read_bytes(&mut self, bytes: &mut [u8]) -> Result<usize, TransBytesError> {
+        let mut read_count = 0;
+        for byte in bytes.iter_mut() {
+            match self.read_byte() {
+                Some(Ok(b)) => {
+                    *byte = b;
+                }
+                Some(Err(e)) => {
+                    return Err(TransBytesError {
+                        bytes_transferred: read_count,
+                        kind: e,
+                    });
+                }
+                None => break,
+            }
+
+            read_count += 1;
+        }
+
+        Ok(read_count)
+    }
 }

@@ -1,236 +1,300 @@
-use core::{cell::UnsafeCell, sync::atomic::AtomicBool};
+use core::{cell::UnsafeCell, num::NonZeroU32};
 
-use alloc::{
-    boxed::Box,
-    sync::{Arc, Weak},
-};
+use alloc::{boxed::Box, sync::Arc};
+use heapless::Deque;
 use rdif_base::{DriverGeneric, KError};
+use spin::Mutex;
 
-use crate::{InterruptMask, Register, TransferError};
+use crate::TransferError;
 
-pub struct Serial<T: Register> {
-    inner: Arc<Inner<T>>,
-    is_tx_taken: Arc<AtomicBool>,
-    is_rx_taken: Arc<AtomicBool>,
-    is_irq_handler_taken: Arc<AtomicBool>,
+use super::{
+    BIrqHandler, BReciever, BSender, BSerial, InterfaceRaw, InterruptMask, TransBytesError,
+};
+
+pub struct SerialDyn<T: InterfaceRaw> {
+    inner: T,
+    tx: Arc<Mutex<Option<BSender>>>,
+
+    rx: Arc<Mutex<Option<Arc<SRecv>>>>,
+    irq_handler: Arc<Mutex<Option<BIrqHandler>>>,
+
+    rx_clone: Arc<SRecv>,
 }
 
-struct Inner<T: Register>(UnsafeCell<T>);
-unsafe impl<T: Register> Send for Inner<T> {}
-unsafe impl<T: Register> Sync for Inner<T> {}
+impl<T: InterfaceRaw> SerialDyn<T> {
+    fn _new(mut inner: T) -> Self {
+        let tx = inner.take_tx().unwrap();
+        let tx: BSender = Box::new(tx);
+        let tx = Arc::new(Mutex::new(Some(tx)));
 
-impl<T: Register> Serial<T> {
-    pub fn new(inner: T) -> Self {
+        let rx_inner = inner.take_rx().unwrap();
+        let rx_inner = SRecv(UnsafeCell::new(RecieverInner {
+            inner: Box::new(rx_inner),
+            fifo: RcvBuff(Deque::new()),
+        }));
+        let rx_inner = Arc::new(rx_inner);
+        let srcv = rx_inner.clone();
+        let rx = Arc::new(Mutex::new(Some(rx_inner)));
+
+        let irq_inner = inner.irq_handler().unwrap();
+
+        let irq_inner: BIrqHandler = Box::new(irq_inner);
+        let irq_handler = Arc::new(Mutex::new(Some(irq_inner)));
         Self {
-            inner: Arc::new(Inner(UnsafeCell::new(inner))),
-            is_tx_taken: Arc::new(AtomicBool::new(false)),
-            is_rx_taken: Arc::new(AtomicBool::new(false)),
-            is_irq_handler_taken: Arc::new(AtomicBool::new(false)),
+            inner,
+            tx,
+            rx,
+            irq_handler,
+            rx_clone: srcv,
         }
     }
 
-    pub fn new_boxed(inner: T) -> Box<dyn crate::Interface> {
-        Box::new(Self::new(inner)) as _
-    }
-
-    fn inner_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.inner.0.get() }
-    }
-
-    fn inner(&self) -> &T {
-        unsafe { &*self.inner.0.get() }
-    }
-
-    pub fn open(&mut self) -> Result<(), KError> {
-        self.inner_mut().open();
-        Ok(())
-    }
-
-    pub fn close(&mut self) -> Result<(), KError> {
-        self.inner_mut().close();
-        Ok(())
+    pub fn new_boxed(inner: T) -> BSerial {
+        Box::new(Self::_new(inner)) as _
     }
 }
 
-impl<T: Register> crate::Interface for Serial<T> {
-    fn base(&self) -> usize {
-        self.inner().get_base()
+impl<T: InterfaceRaw> super::Interface for SerialDyn<T> {
+    fn base_addr(&self) -> usize {
+        self.inner.base_addr()
     }
 
-    fn set_base(&mut self, base: usize) {
-        self.inner_mut().set_base(base);
-    }
-
-    fn take_tx(&mut self) -> Option<Box<dyn crate::TSender>> {
-        if self
-            .is_tx_taken
-            .swap(true, core::sync::atomic::Ordering::SeqCst)
-        {
-            return None;
-        }
+    fn take_tx(&mut self) -> Option<Box<dyn super::TSender>> {
+        let tx = self.tx.lock().take()?;
         Some(Box::new(Sender {
-            s: Arc::downgrade(&self.inner),
-            b: self.is_tx_taken.clone(),
-        }) as _)
+            c: self.tx.clone(),
+            inner: Some(tx),
+        }))
     }
 
-    fn take_rx(&mut self) -> Option<Box<dyn crate::TReciever>> {
-        if self
-            .is_rx_taken
-            .swap(true, core::sync::atomic::Ordering::SeqCst)
-        {
-            return None;
-        }
+    fn take_rx(&mut self) -> Option<Box<dyn super::TReciever>> {
+        let rx = self.rx.lock().take()?;
         Some(Box::new(Reciever {
-            s: Arc::downgrade(&self.inner),
-            b: self.is_rx_taken.clone(),
-        }) as _)
+            c: self.rx.clone(),
+            inner: Some(rx),
+        }))
     }
 
-    fn irq_handler(&mut self) -> Option<Box<dyn crate::TIrqHandler>> {
-        if self
-            .is_irq_handler_taken
-            .swap(true, core::sync::atomic::Ordering::SeqCst)
-        {
-            return None;
-        }
+    fn irq_handler(&mut self) -> Option<Box<dyn super::TIrqHandler>> {
+        let h = self.irq_handler.lock().take()?;
         Some(Box::new(IrqHandler {
-            s: self.inner.clone(),
-            b: self.is_irq_handler_taken.clone(),
-        }) as _)
+            c: self.irq_handler.clone(),
+            inner: Some(h),
+            rcv: self.rx_clone.clone(),
+        }))
     }
 
     fn set_config(&mut self, config: &crate::Config) -> Result<(), crate::ConfigError> {
-        self.inner_mut().set_config(config)
+        self.inner.set_config(config)
     }
 
     fn baudrate(&self) -> u32 {
-        self.inner().baudrate()
+        self.inner.baudrate()
     }
 
     fn data_bits(&self) -> crate::DataBits {
-        self.inner().data_bits()
+        self.inner.data_bits()
     }
 
     fn stop_bits(&self) -> crate::StopBits {
-        self.inner().stop_bits()
+        self.inner.stop_bits()
     }
 
     fn parity(&self) -> crate::Parity {
-        self.inner().parity()
+        self.inner.parity()
     }
 
-    fn clock_freq(&self) -> u32 {
-        self.inner().clock_freq()
+    fn clock_freq(&self) -> Option<NonZeroU32> {
+        self.inner.clock_freq()
     }
 
     fn enable_loopback(&mut self) {
-        self.inner_mut().enable_loopback()
+        self.inner.enable_loopback()
     }
 
     fn disable_loopback(&mut self) {
-        self.inner_mut().disable_loopback()
+        self.inner.disable_loopback()
     }
 
     fn is_loopback_enabled(&self) -> bool {
-        self.inner().is_loopback_enabled()
+        self.inner.is_loopback_enabled()
     }
 
     fn enable_interrupts(&mut self, mask: InterruptMask) {
-        let mut val = self.inner().get_irq_mask();
+        let mut val = self.inner.get_irq_mask();
         val |= mask;
-        self.inner_mut().set_irq_mask(val);
+        self.inner.set_irq_mask(val);
     }
 
     fn disable_interrupts(&mut self, mask: InterruptMask) {
-        let mut val = self.inner().get_irq_mask();
+        let mut val = self.inner.get_irq_mask();
         val &= !mask;
-        self.inner_mut().set_irq_mask(val);
+        self.inner.set_irq_mask(val);
     }
 
     fn get_enabled_interrupts(&self) -> InterruptMask {
-        self.inner().get_irq_mask()
+        self.inner.get_irq_mask()
     }
 }
 
-impl<T: Register> DriverGeneric for Serial<T> {
+impl<T: InterfaceRaw> DriverGeneric for SerialDyn<T> {
     fn open(&mut self) -> Result<(), KError> {
-        self.inner_mut().open();
+        self.inner.open();
         Ok(())
     }
 
     fn close(&mut self) -> Result<(), KError> {
-        self.inner_mut().close();
+        self.inner.close();
         Ok(())
     }
 }
 
-pub struct Sender<T: Register> {
-    s: Weak<Inner<T>>,
-    b: Arc<AtomicBool>,
+pub struct Sender {
+    c: Arc<Mutex<Option<BSender>>>,
+    inner: Option<BSender>,
 }
 
-unsafe impl<T: Register> Send for Sender<T> {}
-
-impl<T: Register> Drop for Sender<T> {
+impl Drop for Sender {
     fn drop(&mut self) {
-        self.b.store(false, core::sync::atomic::Ordering::SeqCst);
+        let mut guard = self.c.lock();
+        guard.replace(self.inner.take().unwrap());
     }
 }
 
-impl<T: Register> crate::TSender for Sender<T> {
-    fn send(&mut self, buf: &[u8]) -> Result<usize, TransferError> {
-        let s = self.s.upgrade().ok_or(TransferError::Closed)?;
-        let s = unsafe { &mut *s.0.get() };
-        Ok(s.write_buf(buf))
+impl super::TSender for Sender {
+    fn write_byte(&mut self, byte: u8) -> bool {
+        let s = self.inner.as_mut().unwrap();
+        s.write_byte(byte)
+    }
+
+    fn write_bytes(&mut self, bytes: &[u8]) -> usize {
+        let s = self.inner.as_mut().unwrap();
+        s.write_bytes(bytes)
     }
 }
 
-pub struct Reciever<T: Register> {
-    s: Weak<Inner<T>>,
-    b: Arc<AtomicBool>,
+struct RecieverInner {
+    inner: BReciever,
+    fifo: RcvBuff,
 }
 
-unsafe impl<T: Register> Send for Reciever<T> {}
+pub struct Reciever {
+    c: Arc<Mutex<Option<Arc<SRecv>>>>,
+    inner: Option<Arc<SRecv>>,
+}
 
-impl<T: Register> crate::TReciever for Reciever<T> {
-    fn recive(&mut self, buf: &mut [u8]) -> Result<usize, TransferError> {
-        let s = self.s.upgrade().ok_or(TransferError::Closed)?;
-        let s = unsafe { &mut *s.0.get() };
-        s.read_buf(buf)
+impl Reciever {
+    fn inner(&self) -> &SRecv {
+        &*self.inner.as_ref().unwrap()
     }
-    fn clean_fifo(&mut self) {
-        let mut buff = [0u8; 16];
-        while let Ok(n) = self.recive(&mut buff) {
-            if n < 16 {
-                break;
+}
+
+impl super::TReciever for Reciever {
+    fn read_byte(&mut self) -> Option<Result<u8, TransferError>> {
+        if let Some(b) = self.inner().fifo_pop() {
+            return Some(b);
+        }
+
+        self.inner().read_byte()
+    }
+
+    fn read_bytes(&mut self, bytes: &mut [u8]) -> Result<usize, TransBytesError> {
+        let recv = self.inner();
+        let mut n = 0;
+
+        // 先从 FIFO 读取尽可能多的数据
+        while n < bytes.len() {
+            match recv.fifo_pop() {
+                Some(Ok(b)) => {
+                    bytes[n] = b;
+                    n += 1;
+                }
+                Some(Err(e)) => {
+                    return Err(TransBytesError {
+                        bytes_transferred: n,
+                        kind: e,
+                    });
+                }
+                None => break,
             }
+        }
+
+        // 如果已经填满则返回
+        if n == bytes.len() {
+            return Ok(n);
+        }
+
+        // FIFO 没有更多数据时，再批量从底层读取
+        match recv.read_bytes(&mut bytes[n..]) {
+            Ok(m) => Ok(n + m),
+            Err(e) => Err(TransBytesError {
+                bytes_transferred: n + e.bytes_transferred,
+                kind: e.kind,
+            }),
         }
     }
 }
 
-impl<T: Register> Drop for Reciever<T> {
+impl Drop for Reciever {
     fn drop(&mut self) {
-        self.b.store(false, core::sync::atomic::Ordering::SeqCst);
+        let mut guard = self.c.lock();
+        guard.replace(self.inner.take().unwrap());
     }
 }
 
-pub struct IrqHandler<T: Register> {
-    s: Arc<Inner<T>>,
-    b: Arc<AtomicBool>,
+pub struct IrqHandler {
+    c: Arc<Mutex<Option<BIrqHandler>>>,
+    inner: Option<BIrqHandler>,
+    rcv: Arc<SRecv>,
 }
-unsafe impl<T: Register> Send for IrqHandler<T> {}
-unsafe impl<T: Register> Sync for IrqHandler<T> {}
 
-impl<T: Register> crate::TIrqHandler for IrqHandler<T> {
+impl super::TIrqHandler for IrqHandler {
     fn clean_interrupt_status(&self) -> InterruptMask {
-        let s = unsafe { &mut *self.s.0.get() };
-        s.clean_interrupt_status()
+        let h = self.inner.as_ref().unwrap();
+        let status = h.clean_interrupt_status();
+        if status.contains(InterruptMask::RX_AVAILABLE) {
+            while let Some(b) = self.rcv.read_byte() {
+                let _ = self.rcv.fifo_push(b);
+            }
+        }
+
+        status
     }
 }
 
-impl<T: Register> Drop for IrqHandler<T> {
+impl Drop for IrqHandler {
     fn drop(&mut self) {
-        self.b.store(false, core::sync::atomic::Ordering::SeqCst);
+        let mut guard = self.c.lock();
+        guard.replace(self.inner.take().unwrap());
+    }
+}
+
+#[repr(align(64))]
+struct RcvBuff(Deque<Result<u8, TransferError>, 64>);
+
+struct SRecv(UnsafeCell<RecieverInner>);
+
+unsafe impl Send for SRecv {}
+unsafe impl Sync for SRecv {}
+
+impl SRecv {
+    fn fifo_push(&self, byte: Result<u8, TransferError>) {
+        let inner = unsafe { &mut *self.0.get() };
+        let _ = inner.fifo.0.push_back(byte);
+    }
+
+    fn fifo_pop(&self) -> Option<Result<u8, TransferError>> {
+        let inner = unsafe { &mut *self.0.get() };
+        inner.fifo.0.pop_front()
+    }
+
+    fn read_byte(&self) -> Option<Result<u8, TransferError>> {
+        let inner = unsafe { &mut *self.0.get() };
+        inner.inner.read_byte()
+    }
+
+    fn read_bytes(&self, bytes: &mut [u8]) -> Result<usize, TransBytesError> {
+        let inner = unsafe { &mut *self.0.get() };
+        inner.inner.read_bytes(bytes)
     }
 }
