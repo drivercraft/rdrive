@@ -31,17 +31,10 @@ impl rdrive::DriverGeneric for IrqTest {
 }
 
 impl Interface for IrqTest {
-    fn parse_dtb_fn(&self) -> Option<rdif_intc::FuncFdtParseConfig> {
-        Some(fdt_parse)
+    fn setup_irq_by_fdt(&mut self, irq_prop: &[u32]) -> IrqId {
+        debug!("IrqTest setup_irq_by_fdt: {:?}", irq_prop);
+        42.into()
     }
-}
-
-fn fdt_parse(_prop_interrupts_one_cell: &[u32]) -> Result<IrqConfig, String> {
-    Ok(IrqConfig {
-        irq: 0.into(),
-        trigger: Trigger::EdgeBoth,
-        is_private: false,
-    })
 }
 
 fn probe_intc(fdt: FdtInfo<'_>, plat_dev: PlatformDevice) -> Result<(), OnProbeError> {
