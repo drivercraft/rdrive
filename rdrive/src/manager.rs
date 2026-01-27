@@ -146,12 +146,6 @@ mod tests {
         let container = DeviceContainer::default();
         let dev = container.get_one::<Intc>();
         assert!(dev.is_none(), "Expected no devices found");
-
-        if let Some(dev) = dev {
-            let weak = dev.lock().unwrap();
-            let f = weak.parse_dtb_fn();
-            assert!(f.is_none(), "Expected no parse function for empty device");
-        }
     }
 
     struct IrqTest {}
