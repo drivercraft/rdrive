@@ -40,4 +40,4 @@ jobs:
         run: cargo clippy
 
       - name: Build documentation
-        run: cargo doc --no-deps --target ${{ matrix.targets }}
+        run: cargo doc --no-deps
