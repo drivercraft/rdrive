@@ -1,0 +1,43 @@
+name: Quality Checks
+
+on:
+  workflow_call:
+
+jobs:
+  check:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        targets:
+          - aarch64-unknown-none-softfloat
+          - aarch64-unknown-none
+          - riscv64gc-unknown-none-elf
+          - x86_64-unknown-none
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          components: rust-src, clippy, rustfmt
+          targets: ${{ matrix.targets }}
+
+      - name: Check rust version
+        run: rustc --version --verbose
+
+      - name: Check code format
+        run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build
+
+      - name: Run clippy
+        run: cargo clippy
+
+      - name: Build documentation
+        run: cargo doc --no-deps --target ${{ matrix.targets }}
