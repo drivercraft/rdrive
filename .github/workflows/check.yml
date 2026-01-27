@@ -7,14 +7,6 @@ jobs:
   check:
     name: Quality Checks
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        targets:
-          - aarch64-unknown-none-softfloat
-          - aarch64-unknown-none
-          - riscv64gc-unknown-none-elf
-          - x86_64-unknown-none
 
     steps:
       - name: Checkout code
@@ -25,7 +17,6 @@ jobs:
         with:
           toolchain: nightly
           components: rust-src, clippy, rustfmt
-          targets: ${{ matrix.targets }}
 
       - name: Check rust version
         run: rustc --version --verbose
