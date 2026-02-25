@@ -241,7 +241,7 @@ macro_rules! module_driver {
                 /// system startup.
                 #[unsafe(link_section = ".driver.register")]
                 #[unsafe(no_mangle)]
-                // #[used(linker)]
+                #[used(linker)]
                 pub static DRIVER: DriverRegister = DriverRegister {
                     $($i : $t),+
                 };
