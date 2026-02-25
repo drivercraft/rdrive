@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(used_with_arg)]
 
 #[macro_use]
 extern crate alloc;
@@ -173,6 +174,8 @@ pub fn fdt_phandle_to_device_id(phandle: Phandle) -> Option<DeviceId> {
 /// # Example
 ///
 /// ```rust
+/// #![feature(used_with_arg)]
+/// 
 /// use rdrive::{
 ///     module_driver,
 ///     driver::*,
