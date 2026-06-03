@@ -2,3 +2,16 @@
 .project*
 Cargo.lock
 /.spec-workflow
+
+# Local AI/agent tool state
+.Codex/
+.claude/
+.codex/
+.cursor/
+.continue/
+.windsurf/
+.aider/
+.cline/
+.roo/
+.gemini/
+.serena/
