@@ -17,6 +17,107 @@
 - `.github/workflows/test.yml`: 当前仓库 CI 的构建和测试入口。
 - `.github/workflows/release-plz.yml` 与 `release-plz.toml`: release-plz 发布流程来源。
 
+## 架构图与时序图
+
+架构或探测流程发生实质变化时，同步更新本节图示；优先使用 GitHub 可直接渲染的
+Mermaid，只有需要更复杂建模时再引入 PlantUML。
+
+```mermaid
+flowchart TB
+    subgraph Downstream["OS / kernel / examples"]
+        Linker[".driver.register linker section"]
+        Init["rdrive::init"]
+        RegisterApi["register_add / register_append"]
+        ProbeApi["probe_pre_kernel / probe_all"]
+        AccessApi["get / get_one / get_list"]
+    end
+
+    subgraph Interfaces["interface/rdif-*"]
+        Base["rdif-base: DriverGeneric, KError, IRQ, IO"]
+        TypedTraits["rdif-intc / serial / timer / block / power / net / pcie"]
+    end
+
+    subgraph Core["rdrive core"]
+        RegisterContainer["RegisterContainer"]
+        Manager["Manager"]
+        DeviceContainer["DeviceContainer"]
+        DeviceHandle["typed Device handle and DeviceGuard"]
+        PlatformDevice["PlatformDevice"]
+    end
+
+    subgraph Probe["probe systems"]
+        FdtProbe["probe::fdt with fdt-parser"]
+        PciProbe["probe::pci"]
+        PcieBus["bus/pcie enumerator"]
+    end
+
+    subgraph Drivers["driver crates / modules"]
+        Macro["module_driver! / rdrive-macros"]
+        DriverRegister["DriverRegister: level, priority, ProbeKind"]
+        DriverImpl["Driver implementation"]
+    end
+
+    Interfaces --> Drivers
+    Macro --> DriverRegister
+    DriverRegister --> Linker
+    Linker --> RegisterApi
+    Init --> Manager
+    RegisterApi --> RegisterContainer
+    ProbeApi --> RegisterContainer
+    RegisterContainer --> FdtProbe
+    RegisterContainer --> PciProbe
+    FdtProbe --> PlatformDevice
+    PciProbe --> PcieBus
+    PciProbe --> PlatformDevice
+    PlatformDevice --> DriverImpl
+    DriverImpl --> DeviceContainer
+    DeviceContainer --> DeviceHandle
+    AccessApi --> DeviceContainer
+```
+
+```mermaid
+sequenceDiagram
+    participant OS as OS/kernel or example
+    participant API as rdrive public API
+    participant Manager as Manager
+    participant FDT as probe::fdt::System
+    participant ProbeFn as driver on_probe
+    participant PlatDev as PlatformDevice
+    participant Devices as DeviceContainer
+    participant PCI as probe::pci
+
+    OS->>API: init(Platform::Fdt { addr })
+    API->>FDT: init(addr)
+    FDT->>FDT: parse FDT and build phandle map
+    API->>Manager: Manager::new()
+
+    OS->>API: register_add / register_append
+    API->>Manager: append DriverRegister entries
+
+    OS->>API: probe_pre_kernel() or probe_all(stop_if_fail)
+    API->>Manager: unregistered(), sorted by ProbePriority
+
+    loop each DriverRegister
+        API->>FDT: probe_register(register)
+        FDT->>FDT: match enabled compatible nodes
+        FDT->>ProbeFn: on_probe(FdtInfo, PlatformDevice)
+        ProbeFn->>PlatDev: register(driver)
+        PlatDev->>Devices: insert(Descriptor, driver)
+    end
+
+    opt probe_all
+        API->>PCI: probe_with(unregistered, stop_if_fail)
+        PCI->>Devices: get_list(PcieController)
+        PCI->>ProbeFn: ProbeKind::Pci on_probe(endpoint, PlatformDevice)
+        ProbeFn->>PlatDev: register(driver)
+        PlatDev->>Devices: insert(Descriptor, driver)
+    end
+
+    OS->>API: get(id) / get_one() / get_list()
+    API->>Devices: typed lookup
+    Devices-->>OS: Device handle
+```
+
 ## 依赖与工具
 
 - 优先使用仓库声明的入口和版本：`Cargo.toml` workspace、`rust-toolchain.toml`、
